@@ -1,15 +1,5 @@
 import numpy as np
 
-from ..toycodes.a_mps import SimpleMPS as mps
-
-d = 10;
-L = 10
-B = np.zeros((5, d, 5))
-S = np.ones([1], np.float)
-B_List = [B.copy() for i in range(L)]
-S_List = [S.copy() for i in range(L)]
-a = mps(B_List, S_List, "finite")
-
 
 class SimpleTTPS:
     """ Simple Tree Like Tensor-Product States
@@ -25,25 +15,49 @@ class SimpleTTPS:
                          ⋮ 
     """
 
-    def __init__(self, ele_list, vib_list, e_bath_list, v_bath_list):
-        self.e = ele_list
-        self.v = v_bath_list
-        self.eb = e_bath_list
-        self.vb = v_bath_list
-        self.eL = len(ele_list)
-        self.vL = len(vib_list)
+    def __init__(self, B=None, S=None,  # ele_list, vib_list, e_bath_list, v_bath_list
+                 ):
+        # self.e = ele_list
+        # self.v = vib_list
+        # self.eb = e_bath_list
+        # self.vb = v_bath_list
+        (eb, ev, vb) = B
+        (eb_s, ev_s, vb_s) = S
+        assert len(eb) == len(ev) == len(vb)
+        self._nc = len(ev)
+        self._eL = [len(ev[i]) for i in range(self._nc)]
+        self._ebL = [len(eb[i]) for i in range(self._nc)]
+        self._vbL = [len(vb[i]) for i in range(self._nc)]
 
-    def get_theta1(self, idx):
+        self.ttnB = []
+        # ttn means tree tensor network. The self.ttn array stores the tensors in the whole network.
+        for i in range(len(self._eL)):
+            self.ttnB.append(
+                eb[i] + ev[i] + vb[i]
+            )
+
+        self.ttnS = []
+        for i in range(len(self._eL)):
+            self.ttnS.append(
+                eb_s[i] + ev_s[i] + vb_s[i]
+            )
+
+    def get_theta1(self, n, i):
         """Calculate effective single-site wave function on sites i in mixed canonical form.
 
         The returned array has legs ``vL, i, vR`` (as one of the Bs).
+        :rtype: numpy.ndarray
         """
-        (i, n) = idx
+        assert n <= len(self._ebL) - 1
+        for j in range(self._nc):
+            assert 0 <= i < self._ebL[j] + self._vbL[j] + 1
+        return np.tensordot(
+            np.diag(self.ttnS[n][i]),
+            self.ttnB[n][i],
+            [1, 0]
+        )  # vL [vL'], [vL] i vU vD  vR -> vL i vU vD vR
 
-        print(self.Ss[i], self.Bs[i])
-        return np.tensordot(np.diag(self.Ss[i]), self.Bs[i], [1, 0])  # vL [vL'], [vL] i vR
-
-    def get_theta2(self, tuple):
+    def get_theta2(self, n, i):
         """Calculate effective two-site wave function on sites i,j=(i+1) in mixed canonical form.
 
         The returned array has legs ``vL, i, j, vR``.
@@ -54,50 +68,64 @@ class SimpleTTPS:
                the V1--b11 bond is (1,1), 
                the E1--d11 bond is (1,-1), etc.
         """
-        # j = (i + 1) % self.L
-        i, j, n = tuple
-        if n == 0:
-            return np.tensordot(self.get_theta1(i), self.Bs[j], [2, 0])
-        # return np.tensordot(self.get_theta1(i), self.Bs[j], [2, 0])  # vL i [vR], [vL] j vR
-        if n != 0:
-            assert abs(j - i) == 1
-            return np.tensordot(self.get_theta1(i), self.Bs[j], [2, 0])
+        # n=-1 means the backbone chain. When n=-1, i is the bond number bottom up
+        if n == -1:
+            assert 0 <= i <= self._nc - 1
+            upward_b = np.tensordot(
+                self.get_theta1(i, self._ebL[i]),
+                np.diag(self.ttnS[i][self._ebL[i]] ** (-1))
+            )  # vL i [vU] vD vR, vU [vD] -> vL i vD vR vU
+            return np.tensordot(
+                upward_b,
+                self.get_theta1(i + 1, self._ebL[i + 1]),
+                [4, 4]
+            )  # vL i [vU] vD vR , vL' j vU' [vD'] vR' -> {vL i VD vR; VL' j vU' vR'}
 
-    # def get_dtheta2(self, tuple):
-    # def get_ltheta2(self, tuple):
-    # def get_rtheta2(self, tuple):
-
-
-def example_TEBD_gs_tf_ising_finite(L, g):
-    print("finite TEBD, imaginary time evolution, transverse field Ising")
-    print("L={L:d}, g={g:.2f}".format(L=L, g=g))
-    import toycodes.a_mps as a_mps
-    import toycodes.b_model as b_model
-    M = b_model.TFIModel(L=L, J=1., g=g, bc='finite')
-
-    psi = a_mps.init_FM_MPS(M.L, M.d, M.bc)
-
-    for dt in [0.1]:
-        print("Hey1", psi.Bs, "\n", psi.Ss)
-        U_bonds = calc_U_bonds(M.H_bonds, dt)
-        update_bond(psi, 1, U_bonds[0], chi_max=40, eps=1.e-10)
-        # run_TEBD(psi, U_bonds, N_steps=500, chi_max=30, eps=1.e-10)
-        E = np.sum(psi.bond_expectation_value(M.H_bonds))
-        print("dt = {dt:.5f}: E = {E:.13f}".format(dt=dt, E=E))
-    # psi = a_mps.init_FM_MPS(M.L, M.d, M.bc)
-    print('Hey', psi.Bs, "\n", psi.Ss)
-    print("Site S\n", psi.Ss, "\nSite B\n", psi.Bs, "\nSite B\n", )
-    print("final bond dimensions: ", psi.get_chi())
-    mag_x = np.sum(psi.site_expectation_value(M.sigmax))
-    mag_z = np.sum(psi.site_expectation_value(M.sigmaz))
-    print("magnetization in X = {mag_x:.5f}".format(mag_x=mag_x))
-    print("magnetization in Z = {mag_z:.5f}".format(mag_z=mag_z))
-    if L < 20:  # compare to exact result
-        from toycodes.tfi_exact import finite_gs_energy
-        E_exact = finite_gs_energy(L, 1., g)
-        print("Exact diagonalization: E = {E:.13f}".format(E=E_exact))
-        print("relative error: ", abs((E - E_exact) / E_exact))
-    return E, psi, M
+        if n != -1:
+            assert n <= self._nc - 1
+            assert 0 <= i < self._ebL[i] + self._vbL[i] + 1
+            return np.tensordot(
+                self.get_theta1(n, i), self.ttnB[n][i + 1], axes=1
+            )  # vL i _vU_ _vD_ [vR],  [vL] j _vU_ _vD_ vR -> {vL i _vU_ _vD_; j _vU_ _vD_ vR}
 
 
-example_TEBD_gs_tf_ising_finite(L=3, g=1.)
+def init_ttn(nc, L, d1, d2):
+    eb = np.zeros([1, d1, 1], np.float)  # vL i vR
+    eb[0, 0, 0] = 1.
+    ebs = [eb.copy() for i in range(L)]
+    ebss = [ebs.copy() for i in range(nc)]
+    #
+    ev = np.zeros([1, d1, 1, 1, 1], np.float)  # vL i vU vD vR
+    ev[0, 0, 0, 0, 0] = 1.
+    evs = [ev.copy() for i in range(2)]
+    evss = [evs.copy() for i in range(nc)]
+    #
+    vb = np.zeros([1, d1, 1], np.float)  # vL i vR
+    vb[0, 0, 0] = 1.
+    vbs = [vb.copy() for i in range(L)]
+    vbss = [vbs.copy() for i in range(nc)]
+
+    eb_s = np.ones([1], np.float)
+    eb_ss = [eb_s.copy() for i in range(L)]
+    eb_sss = [eb_ss.copy() for i in range(nc)]
+
+    ev_s = np.ones([1], np.float)
+    ev_ss = [ev_s.copy() for i in range(2)]
+    ev_sss = [ev_ss.copy() for i in range(nc)]
+
+    vb_s = np.ones([1], np.float)
+    vb_ss = [vb_s.copy() for i in range(L)]
+    vb_sss = [vb_ss.copy() for i in range(nc)]
+    print(ebss[1])
+    print(evss[1])
+    print(vbss[1])
+    return SimpleTTPS(
+        (ebss, evss, vbss),
+        (eb_sss, ev_sss, vb_sss)
+    )
+
+
+if __name__ == "__main__":
+    ttn = init_ttn(nc=2, L=3, d1=5, d2=6)
+    ttn.get_theta2(0, 1)
+
