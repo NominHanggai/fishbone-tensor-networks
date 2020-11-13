@@ -28,7 +28,7 @@ class SimpleTTPS:
         try:
             assert len(eb) == len(ev) == len(vb)
         except ValueError:
-            print >> sys.stderr, "Lengths of the tensor lists don't " \
+            print >> sys.stderr, "Lengths of the tensor lists don't match " \
                                  "Look back the diagram in the comment " \
                                  "of the class SimpleTTPS. The tensors " \
                                  "in the lists should compose a comb-like " \
@@ -47,7 +47,7 @@ class SimpleTTPS:
             self.ttnB.append(
                 eb[i] + ev[i] + vb[i]
             )
-        self._pD = []
+        self._pD = []  # dimentions of the physical leg
         for n in range(self._nc):
             self._pD.append(
                 [self.ttnB[n][i].shape[1] for i in range(self._L[i])]
@@ -74,14 +74,15 @@ class SimpleTTPS:
             )
 
     def get_theta1(self, n, i):
-        """Calculate effective single-site wave function on sites i in mixed canonical form.
-
-        The returned array has legs ``vL, i, vR`` (as one of the Bs).
-        :rtype: numpy.ndarray
+        """
+        Calculate effective single-site wave function on sites i in B canonical form.
+        :param n: Which chain
+        :param i: Which site
+        :return: S*B
         """
         assert n <= len(self._ebL) - 1
         for j in range(self._nc):
-            assert 0 <= i < self._ebL[j] + self._vbL[j] + 1
+            assert 0 <= i < self._ebL[n] + self._evL[n] + self._vbL[n]
         return np.tensordot(
             np.diag(self.ttnS[n][i]),
             self.ttnB[n][i],
@@ -169,39 +170,6 @@ def init_ttn(nc, L, d1, d2):
         (ebss, evss, vbss),
         (eb_sss, ev_sss, vb_sss)
     )
-
-
-def split_truncate_theta(theta, chi_max, eps):
-    """Split and truncate a two-site wave function theta in mixed canonical form.
-
-        Split a two-site wave function as follows::
-              vL --(theta)-- vR     =>    vL --(A)--diag(S)--(B)-- vR
-                    |   |                       |             |
-                    i   j                       i             j
-
-        Afterwards, truncate in the new leg (labeled ``vC``).
-
-        Parameters
-        ----------
-        theta : np.Array[ndim=?:TODO ]
-            Two-site wave function in mixed canonical form, with legs ``vL, i, j, vR``.
-        chi_max : int
-            Maximum number of singular values to keep
-        eps : float
-            Discard any singular values smaller than that.
-
-        Returns
-        -------
-        A : np.Array[ndim=3]
-            Left-canonical matrix on site i, with legs ``vL, i, vC``
-        S : np.Array[ndim=1]
-            Singular/Schmidt values.
-        B : np.Array[ndim=3]
-            Right-canonical matrix on site j, with legs ``vC, j, vR``
-        """
-
-    chivL, dL, dR, chivR = theta.shape
-    theta = np.reshape(theta, [chivL * dL, dR * chivR])
 
 
 if __name__ == "__main__":
