@@ -27,12 +27,13 @@ class SimpleTTPS:
 
         try:
             assert len(eb) == len(ev) == len(vb)
-        except ValueError:
-            print >> sys.stderr, "Lengths of the tensor lists don't match " \
-                                 "Look back the diagram in the comment " \
-                                 "of the class SimpleTTPS. The tensors " \
-                                 "in the lists should compose a comb-like " \
-                                 "network."
+        except AssertionError:
+            print("Lengths of the tensor lists don't match. "
+                  "Look back the diagram in the comment of the class SimpleTTPS. "
+                  "The tensors in the lists should compose a comb-like network.",
+                  file=sys.stderr
+                  )
+            raise
             sys.exit(1)
 
         self._nc = len(ev)
@@ -174,4 +175,4 @@ def init_ttn(nc, L, d1, d2):
 
 if __name__ == "__main__":
     ttn = init_ttn(nc=2, L=3, d1=5, d2=6)
-    ttn.get_theta2(-1, 0)
+    ttn.get_theta2(-1, 1)
