@@ -5,5 +5,5 @@ class SpinBoson:
     pass
 
 
-class SpinBoson:
+class VibronicBath:
     pass
