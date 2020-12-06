@@ -2,15 +2,6 @@ import numpy as np
 
 
 class FinshBone:
-    _nc  = 0
-    _evL = []
-    _ebL = []
-    _vbL = []
-    sd = []
-    ## TODO. _L should change accodring to the parameters above.
-    _L = [sum(x) for x in zip(_ebL, _evL, _vbL)]
-    _pd = []
-    _H = []
     
     @property
     def H(self):
@@ -18,15 +9,15 @@ class FinshBone:
         return self._H
     
     
-    def __init__(self, ncL: int, evL: list, ebL: list, vbL: list, pD: list):
+    def __init__(self, pD: np.ndarray):
         """
         TODO
         :param pD: is a list. pD[0] contains peb, pev, pvb. pD[1] contains peb, pev, pvb etc.
         """
-        self._nc = ncL
-        self._ebL = ebL
-        self._evL = evL
-        self._vbL = vbL
+        self._nc  = len(pD) # an int
+        self._ebL = [len(x) for x in pD[:,0]] # pD is a np.ndarray. pD[:,0] is the first columb of the array
+        self._evL = [len(x) for x in pD[:,1]]
+        self._vbL = [len(x) for x in pD[:,2]]
 
         # init spectral desnity 
         for n in range(self._nc):
