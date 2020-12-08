@@ -28,8 +28,12 @@ class FinshBone:
 
     @property
     def H(self):
-        self._H = self.fill_h_list()
-        return self._H
+        if not self.w_list or not self.k_list:
+            print("K and W dont exist. ", file=sys.stderr)
+            raise ValueError
+        else:
+            self._H = self.build()
+            return self._H
 
     @property
     def sd(self):
@@ -42,16 +46,16 @@ class FinshBone:
 
     @He.setter
     def He(self, m):
+        # TODO check type
         self._He = m
 
-    #
     @property
     def Hv(self):
         return self.Hv
 
     @Hv.setter
     def Hv(self, m):
-        # check type
+        # TODO check type
         self._Hv = m
 
     @property
@@ -60,7 +64,7 @@ class FinshBone:
 
     @Hee.setter
     def Hee(self, m):
-        # check type
+        # TODO check type
         self._Hee = m
 
     @property
@@ -78,7 +82,7 @@ class FinshBone:
 
     @He_dy.setter
     def He_dy(self, m):
-        # check type
+        # TODO check type
         self._He_dy = m
 
     @property
@@ -87,7 +91,7 @@ class FinshBone:
 
     @Hv_dy.setter
     def Hv_dy(self, m):
-        # check type
+        # TODO check type
         self._Hv_dy = m
 
     def __init__(self, pd: np.ndarray):
@@ -99,21 +103,22 @@ class FinshBone:
          pD[1] contains physical dimensions of eb, ev, vb on the second chain,
          etc.
         """
-        self.pd = pd
+        self._pd = pd
         self._nc = len(pd)  # an int
         # pD is a np.ndarray.
-        self._ebL = [len(x) for x in pd[:, 0]]
+        self._ebL = [len(x) for x in self._pd[:, 0]]
         # pD[:,0] is the first column of the array, the eb column
-        self._eL = [len(x) for x in pd[:, 1]]
-        self._vl = [len(x) for x in pd[:, 2]]
+        self._eL = [len(x) for x in self._pd[:, 1]]
+        self._vL = [len(x) for x in self._pd[:, 2]]
         self._evL = self._eL + self._vL
         # pD[:,1] is the second column of the array, the ev column
         self._vbL = [len(x) for x in pd[:, 3]]
         # pD[:,2] is the third column of the array, the vb column
         self._L = [sum(x) for x in zip(self._ebL, self._evL, self._vbL)]
-        self._ebD = self.pd[:, 0]
-        self._evD = self.pd[:, 1]
-        self._vbD = self.pd[:, 2]
+        self._ebD = self._pd[:, 0]
+        self._eD = self._pd[:, 1]
+        self._vD = self._pd[:, 2]
+        self._vbD = self._pd[:, 3]
         # PLEASE NOTE THE SHAPE of pd and nd.array structure.
         # pd = nd.array([
         # [eb0, ev0, vb0], [eb1, ev1, vb1], [eb2, ev2, vb2]
@@ -126,8 +131,8 @@ class FinshBone:
 
         # TODO two lists. w is frequency, k is coupling.
         #  Get them from the function `get_coupling`
-        self.w_list = np.empty([2, self._nc], dtype=object)
-        self.k_list = np.empty([2, self._nc], dtype=object)
+        self.w_list = []
+        self.k_list = []
 
         # initialize spectral densities.
         for n in range(self._nc):
@@ -137,10 +142,10 @@ class FinshBone:
                 self.sd[0, n] = lambda x: 1. / 1. * exp(-x / 1)
             else:
                 raise SystemError  # TODO tell users what happens.
-                # TODO Must have p-leg dims for e and v. Use 0 if v not existent.
+        # TODO Must have p-leg dims for e and v. Use 0 if v not existent.
 
         # Assign the matrices below according to self.pd
-        self._H = []  # list -> all bond Hamiltonians
+        self._H = []  # list -> all bond Hamiltonians.
         # _H = [ [Heb00, Heb01, ..., Hev0, Hvb00, Hvb01, ..., Hvb0N, Hee0],
         #        [Heb10, Heb11, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, Hee1],
         #        [Heb00, Heb01, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, None]
@@ -161,9 +166,11 @@ class FinshBone:
         self.k_list = []
         return self.w_list, self.k_list
 
-    def get_h1(self, n) -> tuple:
+    def get_h1(self, n, c=None) -> tuple:
         """
 
+        :param c:
+        :type c:
         :param n:
         :type n:
         :return:
@@ -171,7 +178,7 @@ class FinshBone:
         """
         if 0 <= n <= self._nc - 1:
             w_list = self.w_list[n][0]
-            pd = self.pd[n, 0]  # -> Physical dimensions of sites ->
+            pd = self._pd[n, 0]  # -> Physical dimensions of sites ->
             # on eb of the nth chain.
             # n -> the nth chain, 0 -> the 1st element -> w_list for eb.
             try:
@@ -186,7 +193,7 @@ class FinshBone:
                 H_eb[-1 - i] = w * c @ c.T
 
             w_list = self.w_list[n][1]
-            pd = self.pd[n, 2]
+            pd = self._pd[n, 2]
             # n -> the nth chain, 0 -> the 3rd element -> w_list for vb.
             try:
                 assert len(pd) == len(w_list)
@@ -198,7 +205,6 @@ class FinshBone:
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
                 H_vb[i] = w * c @ c.T
-
             # EV single Hamiltonian list on the chain n
             H_ev = self.He[n] + self.Hv[n]
             return H_eb, H_ev, H_vb
@@ -207,16 +213,19 @@ class FinshBone:
 
     def get_h2(self, n):
         if n == -1:
-            return self._Hee
+            e =  self.He[:-1]
+            ee = self.Hee
+            h2ee = [e[n] + ee[n] for i in range(self._nc -1)]
+            h2ee[-1] = h2ee[-1] + e[-1]
+            return h2ee
+
         if 0 <= n <= self._nc < 1:
             h1eb, h1ev, h1vb = self.get_h1(n)
 
-            pd = self.pd[n, 0]
-            kL = self.k_list[n][0];
-            wL = self.w_list[n][0]
+            pd = self._pd[n, 0]
+            kL = self.k_list[n][0]; wL = self.w_list[n][0]
             # kL is a list of k's (coupling constants) 0 indicates eb
-            k0, kn = kL[0], kL[1:];
-            w0 = wL[0]
+            k0, kn = kL[0], kL[1:]; w0 = wL[0]
             kn.reverse()
             h2eb = []
             for i, k in enumerate(kn):
@@ -228,17 +237,14 @@ class FinshBone:
                 h2eb.append(h2)
             h2eb.append(w0 * np.eye(pd[-1]))
 
-            pd = self.pd[n, 2]  # 2 indicates the vb list
-            kL = self.k_list[n][1];
-            wL = self.w_list[n][1]
+            pd = self._pd[n, 2]  # 2 indicates the vb list
+            kL = self.k_list[n][1]; wL = self.w_list[n][1]
             # kL is a list of k's (coupling constants) 0 indicates eb
-            k0, kn = kL[0], kL[1:];
-            w0 = wL[0]
+            k0, kn = kL[0], kL[1:]; w0 = wL[0]
             h2vb = [w0 * _c(1) @ _c(pd[0])]
             for i, k in enumerate(kn):
                 m, n = pd[i], pd[i + 1]
-                cm = _c(m);
-                cn = _c(n)
+                cm = _c(m); cn = _c(n)
                 h1 = h1vb[i]
                 h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
                 # h2.shape is (m*n, m*n)
@@ -248,8 +254,9 @@ class FinshBone:
             h2ev = []
             return h2eb + h2ev + h2vb
 
-    def fill_h_list(self, k_list, w_list):
-        # TODO Gotta check the existences of Hee, Hev, H_dy's, sd and stuff.
+    def build(self):
+        # TODO Gotta check the existences of Hee,
+        #  Hev, H_dy's, sd and stuff.
         H = []
         hee = self.get_h2(-1)
         for n in range(self._nc):
@@ -260,5 +267,10 @@ class FinshBone:
         return H
 
 
-class VibronicBath:
-    pass
+if __name__ == "__main__":
+    a = [3,3,3]
+    b = [2]
+    pd = np.array([[a,b,b,a], [a,b,b,a]],dtype=object)
+    H = FinshBone(pd)
+    H.H
+
