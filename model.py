@@ -24,13 +24,20 @@ def _c(dim: int):
     return op
 
 
-class FinshBone:
+def eye(*args):
+    if not args:
+        return None
+    else:
+        return np.eye(*args)
+
+
+class FishBone:
 
     @property
     def H(self):
         if not self.w_list or not self.k_list:
             print("K and W dont exist. ", file=sys.stderr)
-            raise ValueError
+            raise IndexError
         else:
             self._H = self.build()
             return self._H
@@ -41,58 +48,59 @@ class FinshBone:
 
     #
     @property
-    def He(self):
-        return self._He
+    def h1e(self):
+        return self._h1e
 
-    @He.setter
-    def He(self, m):
+    @h1e.setter
+    def h1e(self, m):
         # TODO check type
-        self._He = m
+        self._h1e = m
 
     @property
-    def Hv(self):
-        return self.Hv
+    def h1v(self):
+        self._h1v = []
+        return self._h1v
 
-    @Hv.setter
-    def Hv(self, m):
+    @h1v.setter
+    def h1v(self, m):
         # TODO check type
-        self._Hv = m
+        self._h1v = m
 
     @property
-    def Hee(self):
-        return self._Hee
+    def h2ee(self):
+        return self._h2ee
 
-    @Hee.setter
-    def Hee(self, m):
+    @h2ee.setter
+    def h2ee(self, m):
         # TODO check type
-        self._Hee = m
+        self._h2ee = m
 
     @property
-    def Hev(self):
-        return self._Hev
+    def h2ev(self):
+        return self._h2ev
 
-    @Hev.setter
-    def Hev(self, m):
+    @h2ev.setter
+    def h2ev(self, m):
         # check type
-        self._Hev = m
+        self._h2ev = m
 
     @property
-    def He_dy(self):
-        return self._He_dy
+    def he_dy(self):
+        return self._he_dy
 
-    @He_dy.setter
-    def He_dy(self, m):
+    @he_dy.setter
+    def he_dy(self, m):
         # TODO check type
-        self._He_dy = m
+        self._he_dy = m
 
     @property
-    def Hv_dy(self):
-        return self._Hv_dy
+    def hv_dy(self):
+        return self._hv_dy
 
-    @Hv_dy.setter
-    def Hv_dy(self, m):
+    @hv_dy.setter
+    def hv_dy(self, m):
         # TODO check type
-        self._Hv_dy = m
+        self._hv_dy = m
 
     def __init__(self, pd: np.ndarray):
         """
@@ -137,9 +145,10 @@ class FinshBone:
         # initialize spectral densities.
         for n in range(self._nc):
             if self._evL[n] == 2:
-                self.sd[0, n] = self.sd[0, n] = lambda x: 1. / 1. * exp(-x / 1)
+                self.sd[n, 0] = self.sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
             elif self._evL[n] == 1:
-                self.sd[0, n] = lambda x: 1. / 1. * exp(-x / 1)
+                self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                self.sd[n, 1] = None
             else:
                 raise SystemError  # TODO tell users what happens.
         # TODO Must have p-leg dims for e and v. Use 0 if v not existent.
@@ -150,14 +159,14 @@ class FinshBone:
         #        [Heb10, Heb11, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, Hee1],
         #        [Heb00, Heb01, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, None]
         #      ] in the case of 3 chains.
-        self._H1 = []
-        # self._H2 ==self._H
-        self._He = []  # list -> single Hamiltonian on e site
-        self._Hv = []  # list -> single Hamiltonian on v site
-        self._Hee = []  # list -> coupling Hamiltonian on e and e
-        self._Hev = []  # list -> coupling Hamiltonian on e and v
-        self._He_dy = []  # list -> e dynamic variables coupled to eb
-        self._Hv_dy = []  # list -> v dynamic variables coupled to vb
+        self._h1e = [[eye(*d) for d in self._eD]]
+        # list -> single Hamiltonian on e site. None as a placeholder if the p-leg is [].
+        self._h1v = [[eye(*d) for d in self._vD]]
+        # list -> single Hamiltonian on v site. None as a placeholder if the p-leg is [].
+        self._h2ee = []  # list -> coupling Hamiltonian on e and e
+        self._h2ev = []  # list -> coupling Hamiltonian on e and v
+        self._he_dy = []  # list -> e dynamic variables coupled to eb
+        self._hv_dy = []  # list -> v dynamic variables coupled to vb
 
     def get_coupling(self):
         # TODO Get w and k for each spectral density
@@ -176,46 +185,43 @@ class FinshBone:
         :return:
         :rtype:
         """
-        if 0 <= n <= self._nc - 1:
+        if 0 <= n < self._nc:
+            """
+            Generates h1eb
+            """
             w_list = self.w_list[n][0]
             pd = self._pd[n, 0]  # -> Physical dimensions of sites ->
             # on eb of the nth chain.
             # n -> the nth chain, 0 -> the 1st element -> w_list for eb.
-            try:
-                assert len(pd) == len(w_list)
-            except AssertionError:
-                print("Lengths of the w and pd don't match. ", file=sys.stderr)
-                raise
-            # EB Hamiltonian list
-            H_eb = [None] * len(pd)
+            # h1eb: EB Hamiltonian list
+
+            h1eb = [None] * len(pd)
             for i, w in enumerate(w_list):
                 c = _c(pd[-1 - i])
-                H_eb[-1 - i] = w * c @ c.T
+                h1eb[-1 - i] = w * c @ c.T
+            # If w_list = [], so as pd = [],then h1eb becomes []
 
+            """
+            Generates h1vb
+            """
             w_list = self.w_list[n][1]
             pd = self._pd[n, 2]
             # n -> the nth chain, 0 -> the 3rd element -> w_list for vb.
-            try:
-                assert len(pd) == len(w_list)
-            except AssertionError:
-                print("Lengths of w_list and pd don't match. Bad.", file=sys.stderr)
-                raise
-            # VB Hamiltonian list on the chain n
-            H_vb = [None] * len(pd)
+            h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
-                H_vb[i] = w * c @ c.T
+                h1vb[i] = w * c @ c.T
             # EV single Hamiltonian list on the chain n
-            H_ev = self.He[n] + self.Hv[n]
-            return H_eb, H_ev, H_vb
+            h1ev = self.h1e[n], self.h1v[n]
+            return h1eb, h1ev, h1vb
         else:
             raise ValueError
 
     def get_h2(self, n):
         if n == -1:
-            e =  self.He[:-1]
-            ee = self.Hee
-            h2ee = [e[n] + ee[n] for i in range(self._nc -1)]
+            e = self.h1e[:-1]
+            ee = self.h2ee
+            h2ee = [e[n] + ee[n] for i in range(self._nc - 1)]
             h2ee[-1] = h2ee[-1] + e[-1]
             return h2ee
 
@@ -223,35 +229,46 @@ class FinshBone:
             h1eb, h1ev, h1vb = self.get_h1(n)
 
             pd = self._pd[n, 0]
-            kL = self.k_list[n][0]; wL = self.w_list[n][0]
-            # kL is a list of k's (coupling constants) 0 indicates eb
-            k0, kn = kL[0], kL[1:]; w0 = wL[0]
-            kn.reverse()
-            h2eb = []
-            for i, k in enumerate(kn):
-                m, n = pd[i], pd[i + 1]
-                cm = _c(m);
-                cn = _c(n)
-                h1 = h1eb[i]
-                h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
-                h2eb.append(h2)
-            h2eb.append(w0 * np.eye(pd[-1]))
+            kL = self.k_list[n][0]
+            # kL is a list of k's (coupling constants). Index 0 indicates eb
+            if kL is not [] and pd is not []:
+                k0, kn = kL[0], kL[1:]
+                w0 = self.w_list[n][0][0]
+                kn.reverse()
+                h2eb = []
+                for i, k in enumerate(kn):
+                    m, n = pd[i], pd[i + 1]
+                    cm = _c(m);
+                    cn = _c(n)
+                    h1 = h1eb[i]
+                    h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
+                    h2eb.append(h2)
+                h2eb.append(w0 * np.eye(pd[-1]))
+            else:
+                h2eb = []
 
             pd = self._pd[n, 2]  # 2 indicates the vb list
-            kL = self.k_list[n][1]; wL = self.w_list[n][1]
+            kL = self.k_list[n][1];
+            wL = self.w_list[n][1]
             # kL is a list of k's (coupling constants) 0 indicates eb
-            k0, kn = kL[0], kL[1:]; w0 = wL[0]
-            h2vb = [w0 * _c(1) @ _c(pd[0])]
-            for i, k in enumerate(kn):
-                m, n = pd[i], pd[i + 1]
-                cm = _c(m); cn = _c(n)
-                h1 = h1vb[i]
-                h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
-                # h2.shape is (m*n, m*n)
-                h2vb.append(h2)
+            if kL is not [] and pd is not []:
+                k0, kn = kL[0], kL[1:];
+                w0 = wL[0]
+                h2vb = [w0 * _c(1) @ _c(pd[0])]
+                for i, k in enumerate(kn):
+                    m, n = pd[i], pd[i + 1]
+                    cm = _c(m);
+                    cn = _c(n)
+                    h1 = h1vb[i]
+                    h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
+                    # h2.shape is (m*n, m*n)
+                    h2vb.append(h2)
+            else:
+                h2vb = []
 
             # TODO. Calculate h2ev
-            h2ev = []
+            h2ev = [self.h2ev[n]]
+
             return h2eb + h2ev + h2vb
 
     def build(self):
@@ -268,9 +285,8 @@ class FinshBone:
 
 
 if __name__ == "__main__":
-    a = [3,3,3]
+    a = [3, 3, 3]
     b = [2]
-    pd = np.array([[a,b,b,a], [a,b,b,a]],dtype=object)
-    H = FinshBone(pd)
-    H.H
-
+    pd = np.array([[a, b, b, a], [a, b, b, a]], dtype=object)
+    tri = FinshBone(pd)
+    tri.H
