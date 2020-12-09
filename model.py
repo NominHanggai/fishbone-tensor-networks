@@ -24,11 +24,42 @@ def _c(dim: int):
     return op
 
 
-def eye(*args):
-    if not args:
+def _eye(d):
+    if not d:
+        return None
+    elif d is int or str:
+        return np.eye(int(d))
+    elif type(d) is list:
+        return np.eye(d)
+
+
+def _kron(a,b):
+    if a is None or b is None:
         return None
     else:
-        return np.eye(*args)
+        return np.kron(a,b)
+
+
+def _to_list(x):
+    """
+    Converts x to [x] if x is a np.ndarray. If x is None,
+    convert x(=None) to []. If x is already a list of a
+    np.ndarray return x itself. Else if x is not a list of
+    just one np.ndarray, raise TypeError.
+    :param x: an np.array or a list of one np.ndarray
+    :type x:
+    :return:
+    :rtype:
+    """
+    if x is None:
+        return []
+    elif x is list and len(x) == 1 and\
+        isinstance(*x, np.ndarray):
+        return x
+    elif isinstance(x, np.ndarray):
+        return [x]
+    else:
+        raise TypeError
 
 
 class FishBone:
@@ -49,7 +80,7 @@ class FishBone:
     #
     @property
     def h1e(self):
-        return self._h1e
+        return [_to_list(x) for x in self._h1e]
 
     @h1e.setter
     def h1e(self, m):
@@ -59,7 +90,7 @@ class FishBone:
     @property
     def h1v(self):
         self._h1v = []
-        return self._h1v
+        return [_to_list(x) for x in self._h1v]
 
     @h1v.setter
     def h1v(self, m):
@@ -68,7 +99,7 @@ class FishBone:
 
     @property
     def h2ee(self):
-        return self._h2ee
+        return [_to_list(x) for x in self._h2ee]
 
     @h2ee.setter
     def h2ee(self, m):
@@ -77,7 +108,7 @@ class FishBone:
 
     @property
     def h2ev(self):
-        return self._h2ev
+        return [_to_list(x) for x in self._h2ev]
 
     @h2ev.setter
     def h2ev(self, m):
@@ -151,7 +182,7 @@ class FishBone:
                 self.sd[n, 1] = None
             else:
                 raise SystemError  # TODO tell users what happens.
-        # TODO Must have p-leg dims for e and v. Use 0 if v not existent.
+        # TODO Must have p-leg dims for e and v. Use [] if v not existent.
 
         # Assign the matrices below according to self.pd
         self._H = []  # list -> all bond Hamiltonians.
@@ -159,12 +190,13 @@ class FishBone:
         #        [Heb10, Heb11, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, Hee1],
         #        [Heb00, Heb01, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, None]
         #      ] in the case of 3 chains.
-        self._h1e = [[eye(*d) for d in self._eD]]
+        self._h1e = [_eye(d) for d in self._eD]
         # list -> single Hamiltonian on e site. None as a placeholder if the p-leg is [].
-        self._h1v = [[eye(*d) for d in self._vD]]
+        self._h1v = [_eye(d) for d in self._vD]
         # list -> single Hamiltonian on v site. None as a placeholder if the p-leg is [].
-        self._h2ee = []  # list -> coupling Hamiltonian on e and e
-        self._h2ev = []  # list -> coupling Hamiltonian on e and v
+        self._h2ee = [_kron(_eye(m), _eye(n)) for (m,n) in zip(self._eD[:-1],self._eD[1:])]
+        # list -> coupling Hamiltonian on e and e
+        self._h2ev = [_kron(_eye(m), _eye(n)) for (m,n) in zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
         self._he_dy = []  # list -> e dynamic variables coupled to eb
         self._hv_dy = []  # list -> v dynamic variables coupled to vb
 
@@ -212,17 +244,17 @@ class FishBone:
                 c = _c(pd[i])
                 h1vb[i] = w * c @ c.T
             # EV single Hamiltonian list on the chain n
-            h1ev = self.h1e[n], self.h1v[n]
+            h1ev = self.h1e[n] + self.h1v[n]
             return h1eb, h1ev, h1vb
         else:
             raise ValueError
 
     def get_h2(self, n):
         if n == -1:
-            e = self.h1e[:-1]
+            e = self.h1e
             ee = self.h2ee
-            h2ee = [e[n] + ee[n] for i in range(self._nc - 1)]
-            h2ee[-1] = h2ee[-1] + e[-1]
+            h2ee = [e[n][0] + ee[n][0] for i in range(self._nc - 1)]
+            h2ee[-1] = h2ee[-1] + e[-1][0]
             return h2ee
 
         if 0 <= n <= self._nc < 1:
@@ -267,7 +299,7 @@ class FishBone:
                 h2vb = []
 
             # TODO. Calculate h2ev
-            h2ev = [self.h2ev[n]]
+            h2ev = self.h2ev[n]
 
             return h2eb + h2ev + h2vb
 
@@ -288,5 +320,5 @@ if __name__ == "__main__":
     a = [3, 3, 3]
     b = [2]
     pd = np.array([[a, b, b, a], [a, b, b, a]], dtype=object)
-    tri = FinshBone(pd)
+    tri = FishBone(pd)
     tri.H
