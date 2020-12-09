@@ -1,13 +1,14 @@
 import numpy as np
 import sys
 from numpy import exp
+import recurrence_coefficients as rc
 
 
 def _c(dim: int):
     """
     Creates the annihilation operator.
-    From the package py-tedopa/tedopa.
-    https://github.com/MoritzLange/py-tedopa
+    This fuction is from the package py-tedopa/tedopa.
+    https://github.com/MoritzLange/py-tedopa/tedopa/
 
     The BSD 3-Clause License
     Copyright (c) 2018, the py-tedopa developers.
@@ -27,10 +28,11 @@ def _c(dim: int):
 def _eye(d):
     if not d:
         return None
-    elif d is int or str:
+    elif d is int or d is str:
+        print(d)
         return np.eye(int(d))
     elif type(d) is list:
-        return np.eye(d)
+        return np.eye(*d)
 
 
 def _kron(a,b):
@@ -200,11 +202,14 @@ class FishBoneH:
         self._he_dy = []  # list -> e dynamic variables coupled to eb
         self._hv_dy = []  # list -> v dynamic variables coupled to vb
 
-    def get_coupling(self):
+    def get_coupling(self, n, j, domain, g, ncap=60000):
         # TODO Get w and k for each spectral density
         # TODO w and k have the same structures as  self.sd (spectral densities)
-        self.w_list = []
-        self.k_list = []
+        alphL, betaL = rc.recurrenceCoefficients(
+            n-1, lb=domain[0], rb=domain[1], j=j, g=g
+        )
+        self.w_list = g * np.array(alphL)
+        self.k_list = g * np.sqrt(np.array(betaL))
         return self.w_list, self.k_list
 
     def get_h1(self, n, c=None) -> tuple:
@@ -258,7 +263,7 @@ class FishBoneH:
             return h2ee
 
         if 0 <= n <= self._nc < 1:
-            h1eb, h1ev, h1vb = self.get_h1(n)
+            h1eb, _, h1vb = self.get_h1(n)
 
             pd = self._pd[n, 0]
             kL = self.k_list[n][0]
