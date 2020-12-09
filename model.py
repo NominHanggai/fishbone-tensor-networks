@@ -62,7 +62,7 @@ def _to_list(x):
         raise TypeError
 
 
-class FishBone:
+class FishBoneH:
 
     @property
     def H(self):
@@ -320,5 +320,5 @@ if __name__ == "__main__":
     a = [3, 3, 3]
     b = [2]
     pd = np.array([[a, b, b, a], [a, b, b, a]], dtype=object)
-    tri = FishBone(pd)
+    tri = FishBoneH(pd)
     tri.H
