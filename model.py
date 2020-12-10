@@ -202,13 +202,14 @@ class FishBoneH:
         self._he_dy = []  # list -> e dynamic variables coupled to eb
         self._hv_dy = []  # list -> v dynamic variables coupled to vb
 
-    def get_coupling(self, n, j, domain, g, ncap=60000):
+    def get_coupling(self, n, j, domain, g, ncap):
         # TODO Get w and k for each spectral density
         # TODO w and k have the same structures as  self.sd (spectral densities)
-        alphL, betaL = rc.recurrenceCoefficients(
-            n-1, lb=domain[0], rb=domain[1], j=j, g=g
+        import time
+        alphaL, betaL = rc.recurrenceCoefficients(
+            n-1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
         )
-        self.w_list = g * np.array(alphL)
+        self.w_list = g * np.array(alphaL)
         self.k_list = g * np.sqrt(np.array(betaL))
         return self.w_list, self.k_list
 
