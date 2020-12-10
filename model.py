@@ -213,7 +213,7 @@ class FishBoneH:
         for n, sdn in enumerate(self.sd):
             for i, sdn_il in enumerate(sdn):
                 print(n,i,sdn_il)
-                for sdn_i in sdn_il:
+                for a, sdn_i in enumerate(sdn_il):
                     self.w_list[n][i], self.k_list[n][i] = \
                     self.get_coupling(L[n][i], sdn_i, self.domain, g=1., ncap=600)
 
