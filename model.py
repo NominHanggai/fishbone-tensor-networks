@@ -29,17 +29,16 @@ def _eye(d):
     if not d:
         return None
     elif d is int or d is str:
-        print(d)
         return np.eye(int(d))
     elif type(d) is list:
         return np.eye(*d)
 
 
-def _kron(a,b):
+def _kron(a, b):
     if a is None or b is None:
         return None
     else:
-        return np.kron(a,b)
+        return np.kron(a, b)
 
 
 def _to_list(x):
@@ -55,13 +54,10 @@ def _to_list(x):
     """
     if x is None:
         return []
-    elif x is list and len(x) == 1 and\
-        isinstance(*x, np.ndarray):
+    elif x is list and len(x) == 1:
         return x
-    elif isinstance(x, np.ndarray):
-        return [x]
     else:
-        raise TypeError
+        return [x]
 
 
 class FishBoneH:
@@ -77,7 +73,7 @@ class FishBoneH:
 
     @property
     def sd(self):
-        return self._sd
+        return [[_to_list(x) for x in y] for y in self._sd]
 
     #
     @property
@@ -151,7 +147,7 @@ class FishBoneH:
         # pD[:,0] is the first column of the array, the eb column
         self._eL = [len(x) for x in self._pd[:, 1]]
         self._vL = [len(x) for x in self._pd[:, 2]]
-        self._evL = self._eL + self._vL
+        self._evL = [x+y for x,y in zip(self._eL, self._vL)]
         # pD[:,1] is the second column of the array, the ev column
         self._vbL = [len(x) for x in pd[:, 3]]
         # pD[:,2] is the third column of the array, the vb column
@@ -169,19 +165,20 @@ class FishBoneH:
         # | eb2 ev2 vb2 | is the same as the structure depicted in SimpleTTS class.
 
         self._sd = np.empty([2, self._nc], dtype=object)
-
+        self.domain = [-1,1]
         # TODO two lists. w is frequency, k is coupling.
         #  Get them from the function `get_coupling`
-        self.w_list = []
-        self.k_list = []
+
+        self.w_list = [[[None]*self._ebL[n], [None] * self._vbL[n]] for n in range(self._nc) ]
+        self.k_list = [[[None]*self._ebL[n], [None] * self._vbL[n]] for n in range(self._nc) ]
 
         # initialize spectral densities.
         for n in range(self._nc):
             if self._evL[n] == 2:
-                self.sd[n, 0] = self.sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
+                self._sd[n, 0] = self._sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
             elif self._evL[n] == 1:
-                self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
-                self.sd[n, 1] = None
+                self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                self._sd[n, 1] = None
             else:
                 raise SystemError  # TODO tell users what happens.
         # TODO Must have p-leg dims for e and v. Use [] if v not existent.
@@ -196,22 +193,29 @@ class FishBoneH:
         # list -> single Hamiltonian on e site. None as a placeholder if the p-leg is [].
         self._h1v = [_eye(d) for d in self._vD]
         # list -> single Hamiltonian on v site. None as a placeholder if the p-leg is [].
-        self._h2ee = [_kron(_eye(m), _eye(n)) for (m,n) in zip(self._eD[:-1],self._eD[1:])]
+        self._h2ee = [_kron(_eye(m), _eye(n)) for (m, n) in zip(self._eD[:-1], self._eD[1:])]
         # list -> coupling Hamiltonian on e and e
-        self._h2ev = [_kron(_eye(m), _eye(n)) for (m,n) in zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
+        self._h2ev = [_kron(_eye(m), _eye(n)) for (m, n) in
+                      zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
         self._he_dy = []  # list -> e dynamic variables coupled to eb
         self._hv_dy = []  # list -> v dynamic variables coupled to vb
 
-    def get_coupling(self, n, j, domain, g, ncap):
-        # TODO Get w and k for each spectral density
-        # TODO w and k have the same structures as  self.sd (spectral densities)
-        import time
+    def get_coupling(self, n, j, domain, g, ncap=600):
         alphaL, betaL = rc.recurrenceCoefficients(
-            n-1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
+            n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
         )
-        self.w_list = g * np.array(alphaL)
-        self.k_list = g * np.sqrt(np.array(betaL))
-        return self.w_list, self.k_list
+        w_list = g * np.array(alphaL)
+        k_list = g * np.sqrt(np.array(betaL))
+        return w_list, k_list
+
+    def build_coupling(self):
+        L = [self._ebL, self._vbL]
+        for n, sdn in enumerate(self.sd):
+            for i, sdn_il in enumerate(sdn):
+                print(n,i,sdn_il)
+                for sdn_i in sdn_il:
+                    self.w_list[n][i], self.k_list[n][i] = \
+                    self.get_coupling(L[n][i], sdn_i, self.domain, g=1., ncap=600)
 
     def get_h1(self, n, c=None) -> tuple:
         """
@@ -327,4 +331,4 @@ if __name__ == "__main__":
     b = [2]
     pd = np.array([[a, b, b, a], [a, b, b, a]], dtype=object)
     tri = FishBoneH(pd)
-    tri.H
+    #tri.H
