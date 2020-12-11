@@ -6,7 +6,9 @@ pd = np.array([[a, b, b, a], [a, b, b, []]], dtype=object)
 # TODO handle the case above
 tri = FishBoneH(pd)
 tri.domain = [-1, 1]
-print(tri.sd)
+print("_sd", tri.sd)
+print("evL",tri._evL)
+print("evL",tri._ebL)
 print("!",tri._evL)
 tri.build_coupling()
 print(tri.k_list)

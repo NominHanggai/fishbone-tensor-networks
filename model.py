@@ -175,7 +175,12 @@ class FishBoneH:
         # initialize spectral densities.
         for n in range(self._nc):
             if self._evL[n] == 2:
-                self._sd[n, 0] = self._sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
+                if self._vbL[n] != 0:
+                    self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                    self._sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
+                else:
+                    self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                    self._sd[n, 1] = None
             elif self._evL[n] == 1:
                 self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
                 self._sd[n, 1] = None
@@ -212,7 +217,6 @@ class FishBoneH:
         L = [self._ebL, self._vbL]
         for n, sdn in enumerate(self.sd):
             for i, sdn_il in enumerate(sdn):
-                print(n,i,sdn_il)
                 for a, sdn_i in enumerate(sdn_il):
                     self.w_list[n][i], self.k_list[n][i] = \
                     self.get_coupling(L[n][i], sdn_i, self.domain, g=1., ncap=600)
