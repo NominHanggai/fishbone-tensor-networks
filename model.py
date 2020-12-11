@@ -54,7 +54,7 @@ def _to_list(x):
     """
     if x is None:
         return []
-    elif x is list and len(x) == 1:
+    elif x is list:
         return x
     else:
         return [x]
