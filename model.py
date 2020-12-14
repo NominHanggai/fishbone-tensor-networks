@@ -1,7 +1,7 @@
 import numpy as np
 import sys
-from numpy import exp
-import recurrence_coefficients as rc
+from numpy import exp, expm
+import fishbonett.recurrence_coefficients as rc
 
 
 def _c(dim: int):
@@ -40,6 +40,13 @@ def _kron(a, b):
     else:
         return np.kron(a, b)
 
+def calc_U(H, dt):
+    """Given the H_bonds, calculate ``U_bonds[i] = expm(-dt*H_bonds[i])``.
+
+    Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
+    Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
+    """
+    return expm(-dt * H)
 
 def _to_list(x):
     """
@@ -72,10 +79,12 @@ class FishBoneH:
             return self._H
 
     @property
-    def sd(self):
-        return [[_to_list(x) for x in y] for y in self._sd]
+    def _sd(self):
+        return [[_to_list(x) for x in y] for y in self.sd]
 
-    #
+    # @sd.setter
+    # def sd(self, m):
+
     @property
     def h1e(self):
         return [_to_list(x) for x in self._h1e]
@@ -164,7 +173,7 @@ class FishBoneH:
         # | eb1 ev1 vb1 |
         # | eb2 ev2 vb2 | is the same as the structure depicted in SimpleTTS class.
 
-        self._sd = np.empty([2, self._nc], dtype=object)
+        self.sd = np.empty([2, self._nc], dtype=object)
         self.domain = [-1,1]
         # TODO two lists. w is frequency, k is coupling.
         #  Get them from the function `get_coupling`
@@ -176,14 +185,14 @@ class FishBoneH:
         for n in range(self._nc):
             if self._evL[n] == 2:
                 if self._vbL[n] != 0:
-                    self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
-                    self._sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
+                    self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                    self.sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
                 else:
-                    self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
-                    self._sd[n, 1] = None
+                    self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                    self.sd[n, 1] = None
             elif self._evL[n] == 1:
-                self._sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
-                self._sd[n, 1] = None
+                self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                self.sd[n, 1] = None
             else:
                 raise SystemError  # TODO tell users what happens.
         # TODO Must have p-leg dims for e and v. Use [] if v not existent.
@@ -215,7 +224,7 @@ class FishBoneH:
 
     def build_coupling(self):
         L = [self._ebL, self._vbL]
-        for n, sdn in enumerate(self.sd):
+        for n, sdn in enumerate(self._sd):
             for i, sdn_il in enumerate(sdn):
                 for a, sdn_i in enumerate(sdn_il):
                     self.w_list[n][i], self.k_list[n][i] = \
@@ -277,6 +286,7 @@ class FishBoneH:
             pd = self._pd[n, 0]
             kL = self.k_list[n][0]
             # kL is a list of k's (coupling constants). Index 0 indicates eb
+            # Start to generate ev Hamiltonian lists
             if kL is not [] and pd is not []:
                 k0, kn = kL[0], kL[1:]
                 w0 = self.w_list[n][0][0]
@@ -289,18 +299,27 @@ class FishBoneH:
                     h1 = h1eb[i]
                     h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
                     h2eb.append(h2)
-                h2eb.append(w0 * np.eye(pd[-1]))
+                # The following requires we must have a e site.
+                c0 = _c(pd[-1])
+                pdE = self._pd[n,1][0]
+                # TODO: add an condition to determin if the dimensions match.
+                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 *np.kron((c0+c0.T), self.he_dy[n] )
+                h2eb.append(h2eb0)
             else:
                 h2eb = []
 
-            pd = self._pd[n, 2]  # 2 indicates the vb list
+            pd = self._pd[n, 3]  # 3 indicates the vb list
             kL = self.k_list[n][1];
             wL = self.w_list[n][1]
             # kL is a list of k's (coupling constants) 0 indicates eb
             if kL is not [] and pd is not []:
                 k0, kn = kL[0], kL[1:];
                 w0 = wL[0]
-                h2vb = [w0 * _c(1) @ _c(pd[0])]
+                c0 = _c(pd[0])
+                pdV = self._pd[n,2][0]
+                h2vb0 = np.kron(np.eye(pdV), h1vb[-1]) + k0 * np.kron((self.hv_dy[n], c0 + c0.T))
+
+                h2vb = [(h2vb0, pdV, pd[0])]
                 for i, k in enumerate(kn):
                     m, n = pd[i], pd[i + 1]
                     cm = _c(m);
@@ -308,7 +327,7 @@ class FishBoneH:
                     h1 = h1vb[i]
                     h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
                     # h2.shape is (m*n, m*n)
-                    h2vb.append(h2)
+                    h2vb.append((h2, m, n))
             else:
                 h2vb = []
 
@@ -329,6 +348,16 @@ class FishBoneH:
             H[n].append(hee[n])
         return H
 
+    def get_u(self,dt):
+        # TODO, change the definition of h2e, to strictly follow the even-odd pattern.
+        #  Done but need double check ↑.
+        for i, j in self.H:
+            h = self.H[i][j][0]
+            h = calc_U(h,dt)
+            r0 = r1 = self.H[i][j][1]
+            s0 = s1 = self.H[i][j][2]
+            h = h.reshape([r0,s0,r1,s1])
+            self.H[i][j] = h.transpose([0,2,1,3])
 
 if __name__ == "__main__":
     a = [3, 3, 3]
