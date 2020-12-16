@@ -1,7 +1,9 @@
 import numpy as np
 import sys
-from numpy import exp, expm
+from scipy.linalg import expm
+from numpy import exp
 import fishbonett.recurrence_coefficients as rc
+from copy import deepcopy as dcopy
 
 
 def _c(dim: int):
@@ -46,7 +48,7 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    return expm(-dt * H)
+    return expm(-dt * H * 1j)
 
 def _to_list(x):
     """
@@ -75,7 +77,7 @@ class FishBoneH:
             print("K and W dont exist. ", file=sys.stderr)
             raise IndexError
         else:
-            self._H = self.build()
+            self.build()
             return self._H
 
     @property
@@ -140,7 +142,7 @@ class FishBoneH:
         # TODO check type
         self._hv_dy = m
 
-    def __init__(self, pd: np.ndarray):
+    def __init__(self, pd: np.ndarray, ):
         """
         TODO
         :type pd: nd.ndarray
@@ -211,8 +213,8 @@ class FishBoneH:
         # list -> coupling Hamiltonian on e and e
         self._h2ev = [_kron(_eye(m), _eye(n)) for (m, n) in
                       zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
-        self._he_dy = []  # list -> e dynamic variables coupled to eb
-        self._hv_dy = []  # list -> v dynamic variables coupled to vb
+        self._he_dy = [_eye(d) for d in self._eD]  # list -> e dynamic variables coupled to eb
+        self._hv_dy = [_eye(d) for d in self._vD]  # list -> v dynamic variables coupled to vb
 
     def get_coupling(self, n, j, domain, g, ncap=600):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -253,6 +255,7 @@ class FishBoneH:
             h1eb = [None] * len(pd)
             for i, w in enumerate(w_list):
                 c = _c(pd[-1 - i])
+                print("w is", w)
                 h1eb[-1 - i] = w * c @ c.T
             # If w_list = [], so as pd = [],then h1eb becomes []
 
@@ -275,14 +278,22 @@ class FishBoneH:
     def get_h2(self, n):
         if n == -1:
             e = self.h1e
+            for i, d in enumerate(self._eD[:-1]):
+                e[i] = _kron(e[i], _eye(d))
+            e[-1] = _kron(_eye(self._eD[-1]), e[-1])
+
             ee = self.h2ee
+            print("e=", e)
+            print("ee=", ee)
+
             h2ee = [e[n][0] + ee[n][0] for i in range(self._nc - 1)]
             h2ee[-1] = h2ee[-1] + e[-1][0]
+            print("Total h2ee is", h2ee)
             return h2ee
 
-        if 0 <= n <= self._nc < 1:
+        if 0 <= n <= self._nc - 1:
             h1eb, _, h1vb = self.get_h1(n)
-
+            print("h1eb", h1eb)
             pd = self._pd[n, 0]
             kL = self.k_list[n][0]
             # kL is a list of k's (coupling constants). Index 0 indicates eb
@@ -302,7 +313,7 @@ class FishBoneH:
                 # The following requires we must have a e site.
                 c0 = _c(pd[-1])
                 pdE = self._pd[n,1][0]
-                # TODO: add an condition to determin if the dimensions match.
+                # TODO: add an condition to determine if the dimensions match.
                 h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 *np.kron((c0+c0.T), self.he_dy[n] )
                 h2eb.append(h2eb0)
             else:
@@ -337,27 +348,34 @@ class FishBoneH:
             return h2eb + h2ev + h2vb
 
     def build(self):
+        self.build_coupling()
         # TODO Gotta check the existences of Hee,
         #  Hev, H_dy's, sd and stuff.
         H = []
         hee = self.get_h2(-1)
         for n in range(self._nc):
+            print("n=", n)
             h = self.get_h2(n)
+            print("get_h2 is", h)
             H.append(h)
+        print("H is", H)
         for n in range(self._nc - 1):
             H[n].append(hee[n])
-        return H
+        self._H = H
 
-    def get_u(self,dt):
+    def get_u(self, dt):
         # TODO, change the definition of h2e, to strictly follow the even-odd pattern.
         #  Done but need double check ↑.
+        U = dcopy(self.H)
         for i, j in self.H:
             h = self.H[i][j][0]
-            h = calc_U(h,dt)
+            u = calc_U(h, dt)
             r0 = r1 = self.H[i][j][1]
             s0 = s1 = self.H[i][j][2]
-            h = h.reshape([r0,s0,r1,s1])
-            self.H[i][j] = h.transpose([0,2,1,3])
+            h = h.reshape([r0, s0, r1, s1])
+            U[i][j] = h.transpose([0, 2, 1, 3])
+        return U
+
 
 if __name__ == "__main__":
     a = [3, 3, 3]

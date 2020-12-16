@@ -1,4 +1,4 @@
-from fishbonett.model import FishBoneH
+# from fishbonett.model import _c
 import numpy as np
 
 class C:
@@ -14,10 +14,27 @@ class C:
     #     print("setter")
     #     self._x = value
 
-c = C()
-c.x[0] = 4
+def _c(dim: int):
+    """
+    Creates the annihilation operator.
+    This fuction is from the package py-tedopa/tedopa.
+    https://github.com/MoritzLange/py-tedopa/tedopa/
 
-print(c.x, c._x)
+    The BSD 3-Clause License
+    Copyright (c) 2018, the py-tedopa developers.
+    All rights reserved.
+
+    :param dim: Dimension of the site it should act on
+    :type dim: int
+    :return: The annihilation operator
+    :rtype: numpy.ndarray
+    """
+    op = np.zeros((dim, dim))
+    for i in range(dim - 1):
+        op[i, i + 1] = np.sqrt(i + 1)
+    return op
+
+print(5*_c(2)@_c(2).T)
 
 
 # a = [3, 3, 3]
