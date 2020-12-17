@@ -98,7 +98,6 @@ class FishBoneH:
 
     @property
     def h1v(self):
-        self._h1v = []
         return [_to_list(x) for x in self._h1v]
 
     @h1v.setter
@@ -271,7 +270,8 @@ class FishBoneH:
                 c = _c(pd[i])
                 h1vb[i] = w * c @ c.T
             # EV single Hamiltonian list on the chain n
-            h1ev = self.h1e[n] + self.h1v[n]
+            print(self.h1e, self.h1v)
+            h1ev = [self.h1e[n], self.h1v[n]]
             return h1eb, h1ev, h1vb
         else:
             raise ValueError
