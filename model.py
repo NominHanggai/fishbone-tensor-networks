@@ -285,12 +285,12 @@ class FishBoneH:
             e[-1] = kron(eye(self._eD[-1]), e[-1][0])
 
             ee = self.h2ee
-            print("e=", e)
-            print("ee=", ee)
+            # print("e=", e)
+            # print("ee=", ee)
 
             h2ee = [(e[n][0] + ee[n][0], self._eD[i][0], self._eD[i+1][0]) for i in range(self._nc - 1)]
             h2ee[-1] = (h2ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
-            print("Total h2ee is", h2ee)
+            # print("Total h2ee is", h2ee)
 
             return h2ee
 
@@ -382,10 +382,10 @@ class FishBoneH:
                 #print("ij=====", i, j)
                 #print("h======", self.H[i][j], self.H[i][j][0].shape)
                 u = calc_U(h, dt)
-                r0 = r1 = self.H[i][j][1]
-                s0 = s1 = self.H[i][j][2]
+                r0 = r1 = self.H[i][j][1]  # physical dimension for site A
+                s0 = s1 = self.H[i][j][2]  # physical dimension for site B
                 h = h.reshape([r0, s0, r1, s1])
-                U[i][j] = h.transpose([0, 2, 1, 3])
+                U[i][j] = h
         return U
 
 
