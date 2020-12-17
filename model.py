@@ -263,7 +263,8 @@ class FishBoneH:
             Generates h1vb
             """
             w_list = self.w_list[n][1]
-            pd = self._pd[n, 2]
+            pd = self._pd[n, 3]
+            print("pd and w_list are", w_list, pd)
             # n -> the nth chain, 0 -> the 3rd element -> w_list for vb.
             h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
