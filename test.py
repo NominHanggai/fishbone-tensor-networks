@@ -36,7 +36,18 @@ def _c(dim: int):
 
 print(5*_c(2)@_c(2).T)
 
+def eye(d):
+    if d is [] or None:
+        print("1",d)
+        return None
+    elif type(d) is int or d is str:
+        print("2",d)
+        return np.eye(int(d))
+    elif type(d) is list:
+        print("3", d)
+        return np.eye(*d)
 
+print("eye3=", eye(3))
 # a = [3, 3, 3]
 # b = [2]
 # pd = np.array([[a, b, b, a], [a, b, b, []]], dtype=object)

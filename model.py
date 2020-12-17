@@ -27,16 +27,16 @@ def _c(dim: int):
     return op
 
 
-def _eye(d):
-    if not d:
+def eye(d):
+    if d is [] or None:
         return None
-    elif d is int or d is str:
+    elif type(d) is int or d is str:
         return np.eye(int(d))
     elif type(d) is list:
         return np.eye(*d)
 
 
-def _kron(a, b):
+def kron(a, b):
     if a is None or b is None:
         return None
     else:
@@ -77,7 +77,6 @@ class FishBoneH:
             print("K and W dont exist. ", file=sys.stderr)
             raise IndexError
         else:
-            self.build()
             return self._H
 
     @property
@@ -107,7 +106,7 @@ class FishBoneH:
 
     @property
     def h2ee(self):
-        return [_to_list(x) for x in self._h2ee]
+        return self._h2ee
 
     @h2ee.setter
     def h2ee(self, m):
@@ -204,16 +203,18 @@ class FishBoneH:
         #        [Heb10, Heb11, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, Hee1],
         #        [Heb00, Heb01, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, None]
         #      ] in the case of 3 chains.
-        self._h1e = [_eye(d) for d in self._eD]
+        self._h1e = [eye(d) for d in self._eD]
         # list -> single Hamiltonian on e site. None as a placeholder if the p-leg is [].
-        self._h1v = [_eye(d) for d in self._vD]
+        self._h1v = [eye(d) for d in self._vD]
         # list -> single Hamiltonian on v site. None as a placeholder if the p-leg is [].
-        self._h2ee = [_kron(_eye(m), _eye(n)) for (m, n) in zip(self._eD[:-1], self._eD[1:])]
+        self._h2ee = [kron(eye(m), eye(n)) for (m, n) in zip(self._eD[:-1], self._eD[1:])]
         # list -> coupling Hamiltonian on e and e
-        self._h2ev = [_kron(_eye(m), _eye(n)) for (m, n) in
+        self._h2ev = [kron(eye(m), eye(n)) for (m, n) in
                       zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
-        self._he_dy = [_eye(d) for d in self._eD]  # list -> e dynamic variables coupled to eb
-        self._hv_dy = [_eye(d) for d in self._vD]  # list -> v dynamic variables coupled to vb
+        self._he_dy = [eye(d) for d in self._eD]  # list -> e dynamic variables coupled to eb
+        self._hv_dy = [eye(d) for d in self._vD]  # list -> v dynamic variables coupled to vb
+        self.build()
+
 
     def get_coupling(self, n, j, domain, g, ncap=600):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -254,7 +255,7 @@ class FishBoneH:
             h1eb = [None] * len(pd)
             for i, w in enumerate(w_list):
                 c = _c(pd[-1 - i])
-                print("w is", w)
+                #print("w is", w)
                 h1eb[-1 - i] = w * c @ c.T
             # If w_list = [], so as pd = [],then h1eb becomes []
 
@@ -263,14 +264,14 @@ class FishBoneH:
             """
             w_list = self.w_list[n][1]
             pd = self._pd[n, 3]
-            print("pd and w_list are", w_list, pd)
+            #print("pd and w_list are", w_list, pd)
             # n -> the nth chain, 0 -> the 3rd element -> w_list for vb.
             h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
                 h1vb[i] = w * c @ c.T
             # EV single Hamiltonian list on the chain n
-            print(self.h1e, self.h1v)
+            #print(self.h1e, self.h1v)
             h1ev = [self.h1e[n], self.h1v[n]]
             return h1eb, h1ev, h1vb
         else:
@@ -279,22 +280,23 @@ class FishBoneH:
     def get_h2(self, n):
         if n == -1:
             e = self.h1e
-            for i, d in enumerate(self._eD[:-1]):
-                e[i] = _kron(e[i], _eye(d))
-            e[-1] = _kron(_eye(self._eD[-1]), e[-1])
+            for i, d in enumerate(self._eD[1:]):
+                e[i] = kron(e[i][0], eye(d))
+            e[-1] = kron(eye(self._eD[-1]), e[-1][0])
 
             ee = self.h2ee
             print("e=", e)
             print("ee=", ee)
 
-            h2ee = [e[n][0] + ee[n][0] for i in range(self._nc - 1)]
-            h2ee[-1] = h2ee[-1] + e[-1][0]
+            h2ee = [(e[n][0] + ee[n][0], self._eD[i][0], self._eD[i+1][0]) for i in range(self._nc - 1)]
+            h2ee[-1] = (h2ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
             print("Total h2ee is", h2ee)
+
             return h2ee
 
         if 0 <= n <= self._nc - 1:
             h1eb, _, h1vb = self.get_h1(n)
-            print("h1eb", h1eb)
+            #print("h1eb", h1eb)
             pd = self._pd[n, 0]
             kL = self.k_list[n][0]
             # kL is a list of k's (coupling constants). Index 0 indicates eb
@@ -302,21 +304,22 @@ class FishBoneH:
             if kL is not [] and pd is not []:
                 k0, kn = kL[0], kL[1:]
                 w0 = self.w_list[n][0][0]
-                kn.reverse()
+                #print("kn is", kn,type(kn))
+                kn = kn[::-1]
                 h2eb = []
                 for i, k in enumerate(kn):
-                    m, n = pd[i], pd[i + 1]
-                    cm = _c(m);
-                    cn = _c(n)
+                    r0, r1 = pd[i], pd[i + 1]
+                    c1 = _c(r0);
+                    c2 = _c(r1)
                     h1 = h1eb[i]
-                    h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
-                    h2eb.append(h2)
-                # The following requires we must have a e site.
+                    h2 = kron(h1, eye(r1)) + k * (kron(c1, c2.T)) + kron(c1.T, c2)
+                    h2eb.append((h2,r0,r1))
+                # The following requires that we must have a e site.
                 c0 = _c(pd[-1])
-                pdE = self._pd[n,1][0]
+                pdE = self._pd[n, 1][0]
                 # TODO: add an condition to determine if the dimensions match.
-                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 *np.kron((c0+c0.T), self.he_dy[n] )
-                h2eb.append(h2eb0)
+                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 *np.kron((c0+c0.T), self.he_dy[n])
+                h2eb.append((h2eb0, pd[-1], pdE))
             else:
                 h2eb = []
 
@@ -328,23 +331,27 @@ class FishBoneH:
                 k0, kn = kL[0], kL[1:];
                 w0 = wL[0]
                 c0 = _c(pd[0])
-                pdV = self._pd[n,2][0]
-                h2vb0 = np.kron(np.eye(pdV), h1vb[-1]) + k0 * np.kron((self.hv_dy[n], c0 + c0.T))
+                pdV = self._pd[n, 2][0]
+                h2vb0 = np.kron(np.eye(pdV), h1vb[-1]) + k0 * np.kron(self.hv_dy[n], c0 + c0.T)
 
                 h2vb = [(h2vb0, pdV, pd[0])]
                 for i, k in enumerate(kn):
-                    m, n = pd[i], pd[i + 1]
-                    cm = _c(m);
-                    cn = _c(n)
+                    r0, r1 = pd[i], pd[i + 1]
+                    c0 = _c(r0);
+                    c1 = _c(r1)
                     h1 = h1vb[i]
-                    h2 = h1 + k * (np.kron(cm, cn.T)) + np.kron(cm.T, cn)
+                    h2 = kron(h1, eye(r1)) + k * (np.kron(c0, c1.T)) + np.kron(c0.T, c1)
                     # h2.shape is (m*n, m*n)
-                    h2vb.append((h2, m, n))
+                    h2vb.append((h2, r0, r1))
             else:
                 h2vb = []
 
             # TODO. Calculate h2ev
-            h2ev = self.h2ev[n]
+            h2ev = []
+            for h in self.h2ev[n]:
+                r0 = self._eD[n][0]
+                r1 = self._vD[n][0]
+                h2ev.append((h, r0, r1))
 
             return h2eb + h2ev + h2vb
 
@@ -355,11 +362,11 @@ class FishBoneH:
         H = []
         hee = self.get_h2(-1)
         for n in range(self._nc):
-            print("n=", n)
+            #print("n======", n)
             h = self.get_h2(n)
-            print("get_h2 is", h)
+            #print("get_h2 is", h)
             H.append(h)
-        print("H is", H)
+        #print("H is", H)
         for n in range(self._nc - 1):
             H[n].append(hee[n])
         self._H = H
@@ -367,14 +374,18 @@ class FishBoneH:
     def get_u(self, dt):
         # TODO, change the definition of h2e, to strictly follow the even-odd pattern.
         #  Done but need double check ↑.
+        #print("H0 is", self.H[0])
         U = dcopy(self.H)
-        for i, j in self.H:
-            h = self.H[i][j][0]
-            u = calc_U(h, dt)
-            r0 = r1 = self.H[i][j][1]
-            s0 = s1 = self.H[i][j][2]
-            h = h.reshape([r0, s0, r1, s1])
-            U[i][j] = h.transpose([0, 2, 1, 3])
+        for i, r in enumerate(self.H):
+            for j, s in enumerate(r):
+                h = self.H[i][j][0]
+                #print("ij=====", i, j)
+                #print("h======", self.H[i][j], self.H[i][j][0].shape)
+                u = calc_U(h, dt)
+                r0 = r1 = self.H[i][j][1]
+                s0 = s1 = self.H[i][j][2]
+                h = h.reshape([r0, s0, r1, s1])
+                U[i][j] = h.transpose([0, 2, 1, 3])
         return U
 
 
