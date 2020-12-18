@@ -48,7 +48,7 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    return expm(-dt * H * 1j)
+    return expm(-dt *1j* H)
 
 def _to_list(x):
     """
@@ -106,7 +106,7 @@ class FishBoneH:
 
     @property
     def h2ee(self):
-        return self._h2ee
+        return [_to_list(x) for x in self._h2ee]
 
     @h2ee.setter
     def h2ee(self, m):
@@ -173,7 +173,7 @@ class FishBoneH:
         # | eb1 ev1 vb1 |
         # | eb2 ev2 vb2 | is the same as the structure depicted in SimpleTTS class.
 
-        self.sd = np.empty([2, self._nc], dtype=object)
+        self.sd = np.empty([self._nc, 2], dtype=object)
         self.domain = [-1,1]
         # TODO two lists. w is frequency, k is coupling.
         #  Get them from the function `get_coupling`
@@ -225,10 +225,12 @@ class FishBoneH:
         return w_list, k_list
 
     def build_coupling(self):
-        L = [self._ebL, self._vbL]
+        L = [[a,b] for a, b in zip(self._ebL, self._vbL)]
+        #print("L", L)
         for n, sdn in enumerate(self._sd):
             for i, sdn_il in enumerate(sdn):
                 for a, sdn_i in enumerate(sdn_il):
+                    #print("ni",n,i)
                     self.w_list[n][i], self.k_list[n][i] = \
                     self.get_coupling(L[n][i], sdn_i, self.domain, g=1., ncap=600)
 
@@ -256,7 +258,7 @@ class FishBoneH:
             for i, w in enumerate(w_list):
                 c = _c(pd[-1 - i])
                 #print("w is", w)
-                h1eb[-1 - i] = w * c @ c.T
+                h1eb[-1 - i] = w * c.T @ c
             # If w_list = [], so as pd = [],then h1eb becomes []
 
             """
@@ -269,7 +271,7 @@ class FishBoneH:
             h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
-                h1vb[i] = w * c @ c.T
+                h1vb[i] = w * c.T @ c
             # EV single Hamiltonian list on the chain n
             #print(self.h1e, self.h1v)
             h1ev = [self.h1e[n], self.h1v[n]]
@@ -285,12 +287,12 @@ class FishBoneH:
             e[-1] = kron(eye(self._eD[-1]), e[-1][0])
 
             ee = self.h2ee
-            # print("e=", e)
-            # print("ee=", ee)
+            #print("e=", e)
+            #print("ee=", ee)
 
             h2ee = [(e[n][0] + ee[n][0], self._eD[i][0], self._eD[i+1][0]) for i in range(self._nc - 1)]
             h2ee[-1] = (h2ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
-            # print("Total h2ee is", h2ee)
+            #print("Total h2ee is", h2ee[-2])
 
             return h2ee
 
@@ -312,7 +314,7 @@ class FishBoneH:
                     c1 = _c(r0);
                     c2 = _c(r1)
                     h1 = h1eb[i]
-                    h2 = kron(h1, eye(r1)) + k * (kron(c1, c2.T)) + kron(c1.T, c2)
+                    h2 = kron(h1, eye(r1)) + k * (kron(c1.T, c2) + kron(c1, c2.T))
                     h2eb.append((h2,r0,r1))
                 # The following requires that we must have a e site.
                 c0 = _c(pd[-1])
@@ -340,7 +342,7 @@ class FishBoneH:
                     c0 = _c(r0);
                     c1 = _c(r1)
                     h1 = h1vb[i]
-                    h2 = kron(h1, eye(r1)) + k * (np.kron(c0, c1.T)) + np.kron(c0.T, c1)
+                    h2 = kron(h1, eye(r1)) + k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
             else:
@@ -368,6 +370,7 @@ class FishBoneH:
             H.append(h)
         #print("H is", H)
         for n in range(self._nc - 1):
+            #print("Hee_n is", hee[n])
             H[n].append(hee[n])
         self._H = H
 
@@ -384,8 +387,8 @@ class FishBoneH:
                 u = calc_U(h, dt)
                 r0 = r1 = self.H[i][j][1]  # physical dimension for site A
                 s0 = s1 = self.H[i][j][2]  # physical dimension for site B
-                h = h.reshape([r0, s0, r1, s1])
-                U[i][j] = h
+                u = u.reshape([r0, s0, r1, s1])
+                U[i][j] = u
         return U
 
 
