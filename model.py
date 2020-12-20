@@ -320,7 +320,7 @@ class FishBoneH:
                 c0 = _c(pd[-1])
                 pdE = self._pd[n, 1][0]
                 # TODO: add an condition to determine if the dimensions match.
-                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 *np.kron((c0+c0.T), self.he_dy[n])
+                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 * np.kron((c0+c0.T), self.he_dy[n])
                 h2eb.append((h2eb0, pd[-1], pdE))
             else:
                 h2eb = []
