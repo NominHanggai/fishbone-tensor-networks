@@ -266,7 +266,7 @@ class FishBoneH:
                 c = _c(pd[-1 - i])
                 # print("w is", w)
                 h1eb[-1 - i] = w * c.T @ c
-                print("n i and w", n, i, w)
+                #print("n i and w", n, i, w)
             # If w_list = [], so as pd = [],then h1eb becomes []
 
             """
@@ -313,7 +313,7 @@ class FishBoneH:
             # Start to generate ev Hamiltonian lists
             if kL is not [] and pd is not []:
                 k0, kn = kL[-1], kL[1:]
-                print("k0", k0)
+                #print("k0", k0)
                 w0 = self.w_list[n][0][0]
                 # print("kn is", kn,type(kn))
                 kn = kn[::-1]
@@ -329,7 +329,7 @@ class FishBoneH:
                 c0 = _c(pd[-1])
                 pdE = self._pd[n, 1][0]
                 # TODO: add an condition to determine if the dimensions match.
-                print("Chain n h1e", self.h1e[n])
+                #print("Chain n h1e", self.h1e[n])
                 h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 * np.kron((c0 + c0.T), self.he_dy[n])
                 h2eb.append((h2eb0, pd[-1], pdE))
             else:
