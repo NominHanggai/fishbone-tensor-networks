@@ -130,7 +130,7 @@ class FishBoneNet:
                 raise
             theta_lower = self.get_theta1(i + 1, self._ebL[i + 1])
             s_inverse_middle = np.diag(self.ttnS[i][-1] ** (-1))
-            # print("SHAPE", theta_lower.shape, s_inverse_middle.shape)
+            print("SHAPE", theta_lower.shape, s_inverse_middle.shape)
             lower_gamma_down_canonical = np.tensordot(
                 theta_lower,
                 s_inverse_middle,
@@ -329,7 +329,7 @@ class FishBoneNet:
             self.split_truncate_theta(Utheta, n, i, chi_max, eps)
         elif 0 <= n < self._nc and 0 <= i <= max_index_n:
             if i == e_index:
-                print("Theta Shape", theta.shape, "n and i", n, i, self.U[n][i].shape)
+                print("Theta Shape", theta.shape, "n and i", n, i, self.U[n][i].shape, n,i,self._ebL[n] )
                 Utheta = np.einsum('IJKL, aKLfgh->aIJfgh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i]  [j] vU vD vR}
                 # {i j  k   l}      {a   b   e   f  g  h}
@@ -415,7 +415,7 @@ def init_ttn(nc, L, d1, de, dv):
     v_sss = [dcopy(v_ss) for i in range(nc)]
 
     vb_s = np.ones([1], np.float)
-    vb_ss = [vb_s.copy() for i in range(L)]
+    vb_ss = [vb_s.copy() for i in range(L+1)] # L+1 is because we will store the main-bone S in s[n][-1].
     vb_sss = [dcopy(vb_ss) for i in range(nc)]
     # print(ebss[1])
     # print(evss[1])
