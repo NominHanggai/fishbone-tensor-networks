@@ -118,16 +118,12 @@ class FishBoneNet:
         :return:
         :rtype:
         """
-        # n=0 means the backbone chain. When n=0, i is the bond number bottom up
-        if n == -1:
-            # print("i", i)
-            try:
-                assert 0 <= i <= self._nc - 1
-            except AssertionError:
-                print("The bond is out of the range.",
-                      file=sys.stderr
-                      )
-                raise
+        # n=-1 means the backbone chain. When n=-1, i is the bond number bottom up
+        max_index_main = self._nc - 2
+        max_index_n = self._L[n] - 2
+        number_of_chains = self._nc
+
+        if n == -1 and 0 <= i <= max_index_main:
             theta_lower = self.get_theta1(i + 1, self._ebL[i + 1])
             s_inverse_middle = np.diag(self.ttnS[i][-1] ** (-1))
             print("SHAPE", theta_lower.shape, s_inverse_middle.shape)
@@ -144,14 +140,12 @@ class FishBoneNet:
                 lower_gamma_down_canonical,
                 [3, 2]
             )  # vL i vU [vD] vR , vL' j [vU'] vD' vR' -> {vL i vU vR; VL' j vD' vR'}
-
-        if n >= 0:
-            assert n <= self._nc - 1
-            assert 0 <= i < self._L[n] - 1
-            # print("theta2 product shape, theta1 and B", self.get_theta1(n, i).shape, self.ttnB[n][i + 1].shape)
+        elif self._nc - 1 >= 0 and 0 <= i <= max_index_n:
             return np.tensordot(
                 self.get_theta1(n, i), self.ttnB[n][i + 1], axes=1
             )  # vL i _vU_ _vD_ [vR],  [vL] j _vU_ _vD_ vR -> {vL i _vU_ _vD_; j _vU_ _vD_ vR}
+        else:
+            raise ValueError("Check the values of n and i. They should be in the range of the network")
 
     def split_truncate_theta(self, theta, n, i, chi_max, eps):
         """
@@ -342,7 +336,7 @@ class FishBoneNet:
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
 
             elif 0 <= i <= max_index_n:
-                # print("HEREE", theta.shape, n, i)
+                print("HEREE", theta.shape, n, i)
                 # print("Hshape", self.ttnH[n][i].reshape(4,4), n, i)
                 Utheta = np.einsum('IJKL,aKLh->aIJh', self.U[n][i], theta)
                 # print("theta", theta)

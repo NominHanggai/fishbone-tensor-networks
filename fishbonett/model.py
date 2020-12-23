@@ -55,6 +55,7 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
+    print(H)
     return expm(-dt * 1j * H)
 
 
@@ -92,7 +93,8 @@ class FishBoneH:
         return [[_to_list(x) for x in y] for y in self.sd]
 
     # @sd.setter
-    # def sd(self, m):
+    # def _sd(self, m):
+    #     m = self.sd
 
     @property
     def h1e(self):
@@ -193,13 +195,13 @@ class FishBoneH:
         for n in range(self._nc):
             if self._evL[n] == 2:
                 if self._vbL[n] != 0:
-                    self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
-                    self.sd[n, 1] = lambda x: 1. / 1. * exp(-x / 1)
+                    self.sd[n, 0] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
+                    self.sd[n, 1] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
                 else:
-                    self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                    self.sd[n, 0] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
                     self.sd[n, 1] = None
             elif self._evL[n] == 1:
-                self.sd[n, 0] = lambda x: 1. / 1. * exp(-x / 1)
+                self.sd[n, 0] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
                 self.sd[n, 1] = None
             else:
                 raise SystemError  # TODO tell users what happens.
@@ -228,6 +230,7 @@ class FishBoneH:
             n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
         )
         w_list = g * np.array(alphaL)
+        print("Beta", np.array(betaL))
         k_list = g * np.sqrt(np.array(betaL))
         return w_list, k_list
 
