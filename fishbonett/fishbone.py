@@ -432,39 +432,39 @@ def init(pd):
     nc = len(pd)
     length_chain = [len(sum(chain_n, []))  for chain_n in pd]
     eb_tensor = [
-        list(g_state([1, d, 1]) for d in pd[:, 0][i])
+        [g_state([1, d, 1]) for d in pd[:, 0][i]]
         for i in range(nc)]
     e_tensor = [
-        list(g_state([1, d, 1, 1, 1]) for d in pd[:, 1][i])
+        [g_state([1, d, 1, 1, 1]) for d in pd[:, 1][i]]
         for i in range(nc)]
     v_tensor = [
-        list(g_state([1, d, 1]) for d in pd[:, 2][i])
+        [g_state([1, d, 1]) for d in pd[:, 2][i]]
         for i in range(nc)]
     vb_tensor = [
-        list(g_state([1, d, 1]) for d in pd[:, 3][i])
+        [g_state([1, d, 1]) for d in pd[:, 3][i]]
         for i in range(nc)]
     eb_s = [
-        list(np.ones([1], np.float) for b in chain_n)
-        for chain_n in list(eb_tensor)
+        [np.ones([1], np.float) for b in chain_n]
+        for chain_n in eb_tensor
     ]
     e_s = [
-        list(np.ones([1], np.float) for b in chain_n)
-        for chain_n in list(e_tensor)
+        [np.ones([1], np.float) for b in chain_n]
+        for chain_n in e_tensor
     ]
     v_s = [
-        list(np.ones([1], np.float) for b in chain_n)
-        for chain_n in list(v_tensor)
+        [np.ones([1], np.float) for b in chain_n]
+        for chain_n in v_tensor
     ]
     vb_s = [
         list(np.ones([1], np.float) for b in chain_n)
-        for chain_n in list(vb_tensor)
+        for chain_n in vb_tensor
     ]
-    main_s = [(np.ones([1], np.float)) for chain_n in list(vb_tensor)]
+    main_s = [[np.ones([1], np.float)] for chain_n in vb_tensor]
     vb_s_and_main_s = [vb_s[i] + vb_tensor[i] for i in range(nc)]
 
     return FishBoneNet(
-        (list(eb_tensor), list(e_tensor), list(v_tensor), list(vb_tensor)),
-        (list(eb_s), list(e_s), list(v_s), list(vb_s_and_main_s))
+        (eb_tensor, e_tensor, v_tensor, vb_tensor),
+        (eb_s, e_s, v_s, vb_s_and_main_s)
     )
 
 if __name__ == "__main__":
