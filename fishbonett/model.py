@@ -55,7 +55,7 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    print(H)
+    #print(H)
     return expm(-dt * 1j * H)
 
 
@@ -230,7 +230,6 @@ class FishBoneH:
             n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
         )
         w_list = g * np.array(alphaL)
-        print("Beta", np.array(betaL))
         k_list = g * np.sqrt(np.array(betaL))
         return w_list, k_list
 
@@ -267,7 +266,7 @@ class FishBoneH:
             h1eb = [None] * len(pd)
             for i, w in enumerate(w_list):
                 c = _c(pd[-1 - i])
-                # print("w is", w)
+                print("w is", w, n, i)
                 h1eb[-1 - i] = w * c.T @ c
                 #print("n i and w", n, i, w)
             # If w_list = [], so as pd = [],then h1eb becomes []
@@ -282,6 +281,7 @@ class FishBoneH:
             h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
+                #print("w=", w, n, i)
                 h1vb[i] = w * c.T @ c
             # EV single Hamiltonian list on the chain n
             # print(self.h1e, self.h1v)
@@ -322,10 +322,13 @@ class FishBoneH:
                 kn = kn[::-1]
                 h2eb = []
                 for i, k in enumerate(kn):
+
                     r0, r1 = pd[i], pd[i + 1]
+                    print("r0,r1", r0, r1)
                     c1 = _c(r0);
                     c2 = _c(r1)
                     h1 = h1eb[i]
+                    print("k=", k, n, i)
                     h2 = kron(h1, eye(r1)) + k * (kron(c1.T, c2) + kron(c1, c2.T))
                     h2eb.append((h2, r0, r1))
                 # The following requires that we must have a e site.
@@ -347,8 +350,11 @@ class FishBoneH:
                 w0 = wL[0]
                 c0 = _c(pd[0])
                 pdV = self._pd[n, 2][0]
-                dvb1 = h1vb[-1].shape[0]
-                h2vb0 = np.kron(np.eye(pdV), h1vb[-1]) + k0 * np.kron(self.hv_dy[n], c0 + c0.T) + \
+                dvb1 = h1vb[0].shape[0]
+                #print("vdyn shape",k0, self.hv_dy[n].shape, c0.shape, self.h1v[n][0].shape)
+                #print("vdyn shape", self.k_list)
+                #print("_vD",self._vD,pd)
+                h2vb0 = k0 * np.kron(self.hv_dy[n], c0 + c0.T) + \
                         kron(self.h1v[n], eye(dvb1))
 
                 h2vb = [(h2vb0, pdV, pd[0])]
@@ -360,6 +366,7 @@ class FishBoneH:
                     h2 = kron(h1, eye(r1)) + k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
+
             else:
                 h2vb = []
 

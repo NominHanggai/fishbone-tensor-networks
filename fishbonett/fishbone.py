@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from scipy.linalg import svd, expm
 from copy import deepcopy as dcopy
+import itertools
 
 
 class FishBoneNet:
@@ -65,6 +66,7 @@ class FishBoneNet:
             )
         self._pD = []  # dimensions of physical legs
         for n in range(self._nc):
+            print(n, self.ttnB[n])
             self._pD.append(
                 [self.ttnB[n][i].shape[1] for i in range(self._L[n])]
             )
@@ -330,6 +332,8 @@ class FishBoneNet:
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
 
             elif i == v_index:
+                print("index", n, i)
+                print(self.U[n][i].shape, theta.shape)
                 Utheta = np.einsum('IJKL, aKcdLh->aIcdJh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i] vU vD,  [j]  vR}
                 # {i j  k   l}      {a   b  c  d ,   e   h}
@@ -380,7 +384,7 @@ def init_ttn(nc, L, d1, de, dv):
     :rtype:
     """
     eb = np.zeros([1, d1, 1], np.float)  # vL i vR
-    eb[0, 1, 0] = 1.
+    eb[0, 0, 0] = 1.
     ebs = [eb.copy() for i in range(L)]
     ebss = [dcopy(ebs) for i in range(nc)]
     #
@@ -419,6 +423,49 @@ def init_ttn(nc, L, d1, de, dv):
         (eb_sss, e_sss, v_sss, vb_sss)
     )
 
+
+def init(pd):
+    def g_state(dim):
+        tensor = np.zeros(dim)
+        tensor[(0,)*len(dim)] = 1.
+        return tensor
+    nc = len(pd)
+    length_chain = [len(sum(chain_n, []))  for chain_n in pd]
+    eb_tensor = [
+        list(g_state([1, d, 1]) for d in pd[:, 0][i])
+        for i in range(nc)]
+    e_tensor = [
+        list(g_state([1, d, 1, 1, 1]) for d in pd[:, 1][i])
+        for i in range(nc)]
+    v_tensor = [
+        list(g_state([1, d, 1]) for d in pd[:, 2][i])
+        for i in range(nc)]
+    vb_tensor = [
+        list(g_state([1, d, 1]) for d in pd[:, 3][i])
+        for i in range(nc)]
+    eb_s = [
+        list(np.ones([1], np.float) for b in chain_n)
+        for chain_n in list(eb_tensor)
+    ]
+    e_s = [
+        list(np.ones([1], np.float) for b in chain_n)
+        for chain_n in list(e_tensor)
+    ]
+    v_s = [
+        list(np.ones([1], np.float) for b in chain_n)
+        for chain_n in list(v_tensor)
+    ]
+    vb_s = [
+        list(np.ones([1], np.float) for b in chain_n)
+        for chain_n in list(vb_tensor)
+    ]
+    main_s = [(np.ones([1], np.float)) for chain_n in list(vb_tensor)]
+    vb_s_and_main_s = [vb_s[i] + vb_tensor[i] for i in range(nc)]
+
+    return FishBoneNet(
+        (list(eb_tensor), list(e_tensor), list(v_tensor), list(vb_tensor)),
+        (list(eb_s), list(e_s), list(v_s), list(vb_s_and_main_s))
+    )
 
 if __name__ == "__main__":
     ttn = init_ttn(nc=4, L=3, d1=5, de=2, dv=10)
