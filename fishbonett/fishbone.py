@@ -42,11 +42,11 @@ class FishBoneNet:
         # print("ev", ev, "len", len(ev))
         # print("vb", vb, "len", len(vb))
         try:
-            assert len(eb) == len(e) ==len(v) == len(vb)
+            assert len(eb) == len(e) == len(v) == len(vb)
         except AssertionError:
-            print("Lengths of the tensor lists don't match. "
-                  "Look back the diagram in the comment of the class SimpleTTPS. "
-                  "The tensors in the lists should compose a comb-like network.",
+            print("Lengths of the tensor lists don't match. Look back the "
+                  "diagram in the comment of the class SimpleTTPS. The "
+                  "tensors in the lists should compose a comb-like network.",
                   file=sys.stderr
                   )
             raise
@@ -56,10 +56,12 @@ class FishBoneNet:
         self._vL = [len(ev_n) for ev_n in v]
         self._ebL = [len(eb_n) for eb_n in eb]
         self._vbL = [len(vb_n) for vb_n in vb]
-        self._L = [sum(x) for x in zip(self._ebL, self._eL, self._vL, self._vbL)]
+        self._L = [sum(x)
+                   for x in zip(self._ebL, self._eL, self._vL, self._vbL)]
 
         self.ttnB = []
-        # ttn means tree tensor network. The self.ttn array stores the tensors in the whole network.
+        # ttn means tree tensor network.
+        # The self.ttn array stores the tensors in the whole network.
         for n in range(self._nc):
             self.ttnB.append(
                 eb[n] + e[n] + v[n] + vb[n]
@@ -74,7 +76,6 @@ class FishBoneNet:
 
         """ ttnS = [ [ S_11, S_12, ..., S_1M, S_backbone_1 ],
                      [ S_21, S_22, ..., S_2N, S_backbone_2 ],
-                     ...
                    ]
         """
         for n in range(self._nc):
@@ -95,8 +96,9 @@ class FishBoneNet:
         #         self.ttnH.append(H_ev + H_ev)
 
     def get_theta1(self, n: int, i: int):
-        """
-        Calculate effective single-site wave function on sites i in B canonical form.
+        """Calculate effective single-site wave function on sites i in B
+        canonical form.
+
         :return:
         :rtype:
         :param n: Which chain
@@ -112,7 +114,9 @@ class FishBoneNet:
         )  # vL [vL'], [vL] i vU vD  vR -> vL i vU vD vR
 
     def get_theta2(self, n: int, i: int):
-        """Calculate effective two-site wave function on sites i,j=(i+1) in mixed canonical form.
+        """Calculate effective two-site wave function on sites i,j=(i+1) in 
+        mixed canonical form.
+
         :param n:
         :type n: int
         :param i:
@@ -120,7 +124,8 @@ class FishBoneNet:
         :return:
         :rtype:
         """
-        # n=-1 means the backbone chain. When n=-1, i is the bond number bottom up
+        # n=-1 means the backbone chain. When n=-1, i is the bond number
+        # bottom up
         max_index_main = self._nc - 2
         max_index_n = self._L[n] - 2
         number_of_chains = self._nc
@@ -134,24 +139,31 @@ class FishBoneNet:
                 s_inverse_middle,
                 [2, 0]
             )  # vL i [vU] vD vR, [vU] vU -> vL i vD vR vU
-            lower_gamma_down_canonical = np.transpose(lower_gamma_down_canonical,
-                                                      [0, 1, 4, 2, 3])  # vL i vD vR vU -> vL i vU vD vR
+            # vL i vD vR vU -> vL i vU vD vR
+            lower_gamma_down_canonical = np.transpose(
+                lower_gamma_down_canonical, [0, 1, 4, 2, 3])
             higher_theta = self.get_theta1(i, self._ebL[i])
+            # vL i vU [vD] vR , vL' j [vU'] vD' vR' ->
+            # {vL i vU vR; VL' j vD' vR'}
             return np.tensordot(
                 higher_theta,
                 lower_gamma_down_canonical,
                 [3, 2]
-            )  # vL i vU [vD] vR , vL' j [vU'] vD' vR' -> {vL i vU vR; VL' j vD' vR'}
+            )
         elif self._nc - 1 >= 0 and 0 <= i <= max_index_n:
+            # vL i _vU_ _vD_ [vR],  [vL] j _vU_ _vD_ vR ->
+            # {vL i _vU_ _vD_; j _vU_ _vD_ vR}
             return np.tensordot(
                 self.get_theta1(n, i), self.ttnB[n][i + 1], axes=1
-            )  # vL i _vU_ _vD_ [vR],  [vL] j _vU_ _vD_ vR -> {vL i _vU_ _vD_; j _vU_ _vD_ vR}
+            )
         else:
-            raise ValueError("Check the values of n and i. They should be in the range of the network")
+            raise ValueError("Check the values of n and i. "
+                             "They should be in the range of the network")
 
     def split_truncate_theta(self, theta, n, i, chi_max, eps):
-        """
-        Split the contracted two-site wave function and truncate the number of singular values.
+        """Split the contracted two-site wave function and truncate the number
+        of singular values.
+
         :param theta:
         :type theta:
         :param n: Which chain. n=-1 means the backbone.
@@ -170,24 +182,31 @@ class FishBoneNet:
         max_index_main = self._nc - 1
         e_index = self._ebL[n] - 1
         v_index = self._ebL[n]
-        if n == -1 and 0<=i<= max_index_main:
+        if n == -1 and 0 <= i <= max_index_main:
             # {Down part: vL i VD vR; Up part: VL' j vU' vR'}
-            chi_left_higher, phys_higher, chi_up_higher, chi_right_higher, \
-            chi_left_on_left, phys_lower, chi_down_lower, chi_right_lower = theta.shape
-            theta = np.reshape(theta, [chi_left_higher * phys_higher * chi_up_higher * chi_right_higher,
-                                       chi_left_on_left * phys_lower * chi_down_lower * chi_right_lower])
-            higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(theta, full_matrices=False)
+            (chi_left_higher, phys_higher, chi_up_higher, chi_right_higher,
+             chi_left_on_left,
+             phys_lower, chi_down_lower, chi_right_lower) = theta.shape
+            theta = np.reshape(theta, [chi_left_higher * phys_higher *
+                                       chi_up_higher * chi_right_higher,
+                                       chi_left_on_left * phys_lower *
+                                       chi_down_lower * chi_right_lower])
+            higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(
+                theta, full_matrices=False)
             chivC = min(chi_max, np.sum(S > eps))
-            piv = np.argsort(S)[::-1][:chivC]  # keep the largest `chivC` singular values
-            higher_gamma_up_canonical, S, lower_gamma_down_canonical = higher_gamma_up_canonical[:, piv], S[
-                piv], lower_gamma_down_canonical[piv, :]
+            # keep the largest `chivC` singular values
+            piv = np.argsort(S)[::-1][:chivC]
+            higher_gamma_up_canonical, S, lower_gamma_down_canonical = (
+                higher_gamma_up_canonical[:, piv], S[piv],
+                lower_gamma_down_canonical[piv, :])
             S = S / np.linalg.norm(S)
             self.ttnS[i][-1] = S
-            higher_gamma_up_canonical = np.reshape(
-                higher_gamma_up_canonical,
-                [chi_left_higher, phys_higher, chi_up_higher, chi_right_higher, chivC]
-            )  # gamma: vL*i*vU*vR*chivC -> vL i vU vR vU=chivC
-            higher_gamma_up_canonical = np.transpose(higher_gamma_up_canonical, [0, 1, 2, 4, 3])
+            # gamma: vL*i*vU*vR*chivC -> vL i vU vR vU=chivC
+            higher_gamma_up_canonical = np.reshape(higher_gamma_up_canonical, [
+                chi_left_higher, phys_higher, chi_up_higher,
+                chi_right_higher, chivC])
+            higher_gamma_up_canonical = np.transpose(
+                higher_gamma_up_canonical, [0, 1, 2, 4, 3])
             # vL i vU vR vD -> vL i vU vD vR
             # print("DSHAPE", D.shape)
             higher_theta = np.tensordot(
@@ -196,7 +215,8 @@ class FishBoneNet:
             )  # vL i vU [vD] vR, [vD'] vD -> vL i vU vR vD
             higher_theta = np.transpose(higher_theta, [0, 1, 2, 4, 3])
             higher_gamma_right_canonical = np.tensordot(
-                np.diag(self.ttnS[i][self._ebL[i]] ** -1),  # S on the left of higher gamma.
+                # S on the left of higher gamma.
+                np.diag(self.ttnS[i][self._ebL[i]] ** -1),
                 higher_theta,
                 [1, 0]
             )  # vL [vL'], [vL'] i vU vD vR -> vL i vD vR vU
@@ -204,10 +224,12 @@ class FishBoneNet:
 
             lower_gamma_down_canonical = np.reshape(
                 lower_gamma_down_canonical,
-                [chivC, chi_left_on_left, phys_lower, chi_down_lower, chi_right_lower]
+                [chivC, chi_left_on_left, phys_lower,
+                    chi_down_lower, chi_right_lower]
             )  # gamma: chivC*vL*j*vD*vR -> vD==chivC vL i vD vR
-            lower_gamma_down_canonical = np.transpose(lower_gamma_down_canonical,
-                                                      [1, 2, 0, 3, 4])  # vU vL i vD vR -> vL i vU vD vR
+            # vU vL i vD vR -> vL i vU vD vR
+            lower_gamma_down_canonical = np.transpose(
+                lower_gamma_down_canonical, [1, 2, 0, 3, 4])
 
             lower_theta = np.tensordot(
                 lower_gamma_down_canonical, np.diag(S),
@@ -224,44 +246,56 @@ class FishBoneNet:
         elif 0 <= n < self._nc and i >= 0:
             if i == self._ebL[n] - 1:
                 # print("ni", n, i, theta.shape)
-                chi_left_on_left, phys_left, \
-                phys_right, chi_up_on_right, chi_down_on_right, chi_right_on_right = theta.shape
-                theta = np.reshape(theta, [chi_left_on_left * phys_left,
-                                           phys_right * chi_up_on_right * chi_down_on_right * chi_right_on_right])
+                (chi_left_on_left, phys_left, phys_right, chi_up_on_right,
+                 chi_down_on_right, chi_right_on_right) = theta.shape
+                theta = np.reshape(theta, [
+                    chi_left_on_left * phys_left,
+                    phys_right * chi_up_on_right *
+                    chi_down_on_right * chi_right_on_right])
                 A, S, B = svd(theta, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
-                piv = np.argsort(S)[::-1][:chivC]  # keep the largest `chivC` singular values
+                # keep the largest `chivC` singular values
+                piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
                 S = S / np.linalg.norm(S)
                 self.ttnS[n][i + 1] = S
                 print("Shape of middle S", np.diag(self.ttnS[n][i + 1]).shape)
                 A = np.reshape(A, [chi_left_on_left, phys_left, chivC])
                 # A: vL*i*vR -> vL i vR=chivC
-                B = np.reshape(B, [chivC, phys_right, chi_up_on_right, chi_down_on_right, chi_right_on_right])
+                B = np.reshape(B, [chivC, phys_right, chi_up_on_right,
+                                   chi_down_on_right, chi_right_on_right])
                 # B: chivC*j*vU*vD*vR -> vL==chivC j vU vD vR
-                print("Shape of left S and A", np.diag(self.ttnS[n][i] ** (-1)).shape, A.shape)
-                A = np.tensordot(np.diag(self.ttnS[n][i] ** (-1)), A, axes=[1, 0])
+                print("Shape of left S and A", np.diag(
+                    self.ttnS[n][i] ** (-1)).shape, A.shape)
+                A = np.tensordot(
+                    np.diag(self.ttnS[n][i] ** (-1)), A, axes=[1, 0])
                 A = np.tensordot(A, np.diag(S), axes=[2, 0])
                 self.ttnB[n][i] = A
                 self.ttnB[n][i + 1] = B
 
             elif i == self._ebL[n]:
-                chi_left_on_left, phys_left, chiU_l, chiD_l, phys_right, chi_right_on_right = theta.shape
-                theta = np.reshape(theta, [chi_left_on_left * phys_left * chiU_l * chiD_l,
-                                           phys_right * chi_right_on_right])
+                (chi_left_on_left, phys_left, chiU_l, chiD_l,
+                 phys_right, chi_right_on_right) = theta.shape
+                theta = np.reshape(
+                    theta, [chi_left_on_left * phys_left * chiU_l * chiD_l,
+                            phys_right * chi_right_on_right])
                 A, S, B = svd(theta, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
-                piv = np.argsort(S)[::-1][:chivC]  # keep the largest `chivC` singular values
+                # keep the largest `chivC` singular values
+                piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
                 S = S / np.linalg.norm(S)
                 self.ttnS[n][i + 1] = S
-                # print("Shape of middle S", np.diag(self.ttnS[n][i + 1]).shape)
-                A = np.reshape(A, [chi_left_on_left, phys_left, chiU_l, chiD_l, chivC])
+                # print("Shape of middle S", np.diag(self.ttnS[n][i+1]).shape)
+                A = np.reshape(
+                    A, [chi_left_on_left, phys_left, chiU_l, chiD_l, chivC])
                 # A: {vL*i*vU*vD, chivC} -> vL i vU vD vR=chivC
                 B = np.reshape(B, [chivC, phys_right, chi_right_on_right])
                 # B: {chivC, j*vR} -> vL==chivC j vR
-                # print("Shape of left S and A", np.diag(self.ttnS[n][i] ** (-1)).shape, A.shape)
-                A = np.tensordot(np.diag(self.ttnS[n][i] ** (-1)), A, axes=[1, 0])
+                # print("Shape of left S and A",
+                #       np.diag(self.ttnS[n][i] ** (-1)).shape, A.shape)
+                A = np.tensordot(
+                    np.diag(self.ttnS[n][i] ** (-1)), A, axes=[1, 0])
                 # vL [vL'] * [vL] i vU vD vR -> vL i vU vD vR
                 A = np.tensordot(A, np.diag(S), [4, 0])
                 # vL i vU vD [vR] * [vR] vR -> vL i vU vD vR
@@ -269,14 +303,16 @@ class FishBoneNet:
                 self.ttnB[n][i + 1] = B
 
             else:
-                chi_left_on_left, phys_left, phys_right, chi_right_on_right = theta.shape
+                (chi_left_on_left, phys_left,
+                 phys_right, chi_right_on_right) = theta.shape
                 # print("theta shape", theta, theta.shape)
                 theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                            phys_right * chi_right_on_right])
                 A, S, B = svd(theta, full_matrices=False)
                 # print("ABS", A.shape, B.shape, S)
                 chivC = min(chi_max, np.sum(S > eps))
-                piv = np.argsort(S)[::-1][:chivC]  # keep the largest `chivC` singular values
+                # keep the largest `chivC` singular values
+                piv = np.argsort(S)[::-1][:chivC]
                 # print("piv", chivC, piv, np.sum(S > eps))
                 A, S, B = A[:, piv], S[piv], B[piv, :]
                 # print("AB", A.shape, B.shape, S.shape)
@@ -318,14 +354,17 @@ class FishBoneNet:
         v_index = self._ebL[n]
         if n == -1 and 0 <= i <= max_index_main:
             # {Down part: vL i VD vR; Up part: VL' j vU' vR'}
-            Utheta = np.einsum('IJKL, aKcdeLgh->aIcdeJgh', self.U[i][-1], theta)
-            print("Utheta.shape", Utheta.shape, self.U[i][-1].shape, theta.shape)
+            Utheta = np.einsum('IJKL, aKcdeLgh->aIcdeJgh',
+                               self.U[i][-1], theta)
+            print("Utheta.shape", Utheta.shape,
+                  self.U[i][-1].shape, theta.shape)
             # {i j [i*] [j*]} * {vL [i] vD vR, vL' [j] vD vR}
             # {i j   k   l}     {a   b  c  d ,  e  f  g  h}
             self.split_truncate_theta(Utheta, n, i, chi_max, eps)
         elif 0 <= n < self._nc and 0 <= i <= max_index_n:
             if i == e_index:
-                print("Theta Shape", theta.shape, "n and i", n, i, self.U[n][i].shape, n,i,self._ebL[n] )
+                print("Theta Shape", theta.shape, "n and i", n,
+                      i, self.U[n][i].shape, n, i, self._ebL[n])
                 Utheta = np.einsum('IJKL, aKLfgh->aIJfgh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i]  [j] vU vD vR}
                 # {i j  k   l}      {a   b   e   f  g  h}
@@ -357,13 +396,84 @@ class FishBoneNet:
             # TODO error that n is out of range.
             # TODO Should echo n and number of chains
 
+<<<<<<< HEAD
+=======
+
+def init_ttn(nc, L, d1, de, dv):
+    """
+    Initialize the SimpleTTN class.
+    Fill all the relevant lists, including ttnS, ttnB, ttnH.
+    :param de:
+    :type de:
+    +
+    +
+    +
+    +
+    +
+    ++
+    :param dv:
+    :type dv:
+    :param nc:
+    :type nc:
+    :param L:
+    :type L:
+    :param d1:
+    :type d1:
+    :param d2:
+    :type d2:
+    :return:
+    :rtype:
+    """
+    eb = np.zeros([1, d1, 1], np.float)  # vL i vR
+    eb[0, 0, 0] = 1.
+    ebs = [eb.copy() for i in range(L)]
+    ebss = [dcopy(ebs) for i in range(nc)]
+    #
+    e = np.zeros([1, de, 1, 1, 1], np.float)  # vL i vU vD vR
+    e[0, 0, 0, 0, 0] = 1.
+    v = np.zeros([1, dv, 1], np.float)  # vL i vR
+    v[0, 0, 0] = 1.
+
+    ess = [[e.copy()] for i in range(nc)]
+    vss = [[v.copy()] for i in range(nc)]
+    #
+    vb = np.zeros([1, d1, 1], np.float)  # vL i vR
+    vb[0, 0, 0] = 1.
+    vbs = [vb.copy() for i in range(L)]
+    vbss = [dcopy(vbs) for i in range(nc)]
+
+    eb_s = np.ones([1], np.float)
+    eb_ss = [eb_s.copy() for i in range(L)]
+    eb_sss = [dcopy(eb_ss) for i in range(nc)]
+
+    e_s = np.ones([1], np.float)
+    v_s = np.ones([1], np.float)
+    e_ss = [e_s.copy()]  # we have two sites here, e site and v site.
+    v_ss = [v_s.copy()]
+    e_sss = [dcopy(e_ss) for i in range(nc)]
+    v_sss = [dcopy(v_ss) for i in range(nc)]
+
+    vb_s = np.ones([1], np.float)
+    # L+1 is because we will store the main-bone S in s[n][-1].
+    vb_ss = [vb_s.copy() for i in range(L+1)]
+    vb_sss = [dcopy(vb_ss) for i in range(nc)]
+    # print(ebss[1])
+    # print(evss[1])
+    # print(vbss[1])
+    return FishBoneNet(
+        (ebss, ess, vss, vbss),
+        (eb_sss, e_sss, v_sss, vb_sss)
+    )
+
+
+>>>>>>> 8a8597f2c98dcfbd6352a2c393cdce1e102eeadd
 def init(pd):
     def g_state(dim):
         tensor = np.zeros(dim)
         tensor[(0,)*len(dim)] = 1.
         return tensor
     nc = len(pd)
-    length_chain = [len(sum(chain_n, []))  for chain_n in pd]
+    length_chain = [len(sum(chain_n, [])) for chain_n in pd]
     eb_tensor = [
         [g_state([1, d, 1]) for d in pd[:, 0][i]]
         for i in range(nc)]
@@ -401,6 +511,7 @@ def init(pd):
         (eb_tensor, e_tensor, v_tensor, vb_tensor),
         (eb_s, e_s, v_s, vb_s_and_main_s)
     )
+
 
 if __name__ == "__main__":
     ttn = init(nc=4, L=3, d1=5, de=2, dv=10)
