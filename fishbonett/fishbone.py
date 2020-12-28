@@ -357,73 +357,6 @@ class FishBoneNet:
             # TODO error that n is out of range.
             # TODO Should echo n and number of chains
 
-
-def init_ttn(nc, L, d1, de, dv):
-    """
-    Initialize the SimpleTTN class.
-    Fill all the relevant lists, including ttnS, ttnB, ttnH.
-    :param de:
-    :type de:
-    +
-    +
-    +
-    +
-    +
-    ++
-    :param dv:
-    :type dv:
-    :param nc:
-    :type nc:
-    :param L:
-    :type L:
-    :param d1:
-    :type d1:
-    :param d2:
-    :type d2:
-    :return:
-    :rtype:
-    """
-    eb = np.zeros([1, d1, 1], np.float)  # vL i vR
-    eb[0, 0, 0] = 1.
-    ebs = [eb.copy() for i in range(L)]
-    ebss = [dcopy(ebs) for i in range(nc)]
-    #
-    e = np.zeros([1, de, 1, 1, 1], np.float)  # vL i vU vD vR
-    e[0, 0, 0, 0, 0] = 1.
-    v = np.zeros([1, dv, 1], np.float)  # vL i vR
-    v[0, 0, 0] = 1.
-
-    ess = [[e.copy()] for i in range(nc)]
-    vss = [[v.copy()] for i in range(nc)]
-    #
-    vb = np.zeros([1, d1, 1], np.float)  # vL i vR
-    vb[0, 0, 0] = 1.
-    vbs = [vb.copy() for i in range(L)]
-    vbss = [dcopy(vbs) for i in range(nc)]
-
-    eb_s = np.ones([1], np.float)
-    eb_ss = [eb_s.copy() for i in range(L)]
-    eb_sss = [dcopy(eb_ss) for i in range(nc)]
-
-    e_s = np.ones([1], np.float)
-    v_s = np.ones([1], np.float)
-    e_ss = [e_s.copy()]  # we have two sites here, e site and v site.
-    v_ss = [v_s.copy()]
-    e_sss = [dcopy(e_ss) for i in range(nc)]
-    v_sss = [dcopy(v_ss) for i in range(nc)]
-
-    vb_s = np.ones([1], np.float)
-    vb_ss = [vb_s.copy() for i in range(L+1)] # L+1 is because we will store the main-bone S in s[n][-1].
-    vb_sss = [dcopy(vb_ss) for i in range(nc)]
-    # print(ebss[1])
-    # print(evss[1])
-    # print(vbss[1])
-    return FishBoneNet(
-        (ebss, ess, vss, vbss),
-        (eb_sss, e_sss, v_sss, vb_sss)
-    )
-
-
 def init(pd):
     def g_state(dim):
         tensor = np.zeros(dim)
@@ -461,12 +394,14 @@ def init(pd):
     ]
     main_s = [[np.ones([1], np.float)] for chain_n in vb_tensor]
     vb_s_and_main_s = [vb_s[i] + vb_tensor[i] for i in range(nc)]
-
+    # eb_tensor[0][0][0,0,0] = 1.
+    e_tensor[0][0][0,0,0,0,0] = 1/np.sqrt(2)
+    e_tensor[0][0][0,1,0,0,0] = 1/np.sqrt(2)
     return FishBoneNet(
         (eb_tensor, e_tensor, v_tensor, vb_tensor),
         (eb_s, e_s, v_s, vb_s_and_main_s)
     )
 
 if __name__ == "__main__":
-    ttn = init_ttn(nc=4, L=3, d1=5, de=2, dv=10)
+    ttn = init(nc=4, L=3, d1=5, de=2, dv=10)
     ttn.get_theta2(-1, 1)
