@@ -322,7 +322,7 @@ class FishBoneH:
             # kL is a list of k's (coupling constants). Index 0 indicates eb
             # Start to generate ev Hamiltonian lists
             if kL != [] and pd != []:
-                k0, kn = kL[-1], kL[1:]
+                k0, kn = kL[0], kL[1:-1]
                 # print("k0", k0)
                 w0 = self.w_list[n][0][0]
                 # print("kn is", kn,type(kn))
@@ -469,8 +469,8 @@ class SpinBoson():
     def get_h2(self):
         h1 = self.get_h1()
         k_list = self.k_list[::-1]
-        k0 = k_list[0]
-        k_list = k_list[1:]
+        k0 = k_list[-1]
+        k_list = k_list = k_list[0:-1]
         h2 = []
         for i, k in enumerate(k_list):
             d1 = self.pd_boson[i]
@@ -508,9 +508,9 @@ class SpinBoson():
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
+        print()
         coup = k0* np.kron(c0+c0.T, self.he_dy)
         h20 = coup
-        print("h20", h20.shape)
         h2.append(h20)
         return h2
 

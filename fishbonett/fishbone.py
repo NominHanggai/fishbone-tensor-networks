@@ -540,17 +540,19 @@ class SpinBoson1D:
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
         S = S / np.linalg.norm(S)
-        self.S[i+1] = S
         A = np.reshape(A, [chi_left_on_left, phys_left, chivC])  # A: {vL*i, chivC} -> vL i vR=chivC
         B = np.reshape(B, [chivC, phys_right, chi_right_on_right])  # B: {chivC, j*vR} -> vL==chivC j vR
         A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])  # vL [vL'] * [vL] i vR -> vL i vR
         A = np.tensordot(A, np.diag(S), [2, 0])  # vL i [vR] * [vR] vR -> vL i vR
+        self.S[i+1] = S
         self.B[i] = A
         self.B[i+1] = B
 
     def update_bond(self,i, chi_max, eps):
         theta = self.get_theta2(i)
-        Utheta = np.einsum('IJKL,aKLh->aIJh', self.U[i], theta)
+        U_bond = self.U[i]
+        Utheta = np.tensordot(U_bond, theta, axes=([2, 3], [1, 2]))  # i j [i*] [j*], vL [i] [j] vR
+        Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
         self.split_truncate_theta(Utheta, i, chi_max, eps)
 
 if __name__ == "__main__":
