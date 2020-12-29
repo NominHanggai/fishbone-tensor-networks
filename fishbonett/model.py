@@ -228,7 +228,7 @@ class FishBoneH:
         print("H!E", self._h1v)
         print("H!E", [np.eye(d[0]) for d in self._eD])
         print("EYE", self._pd)
-        self.build()
+        self.build(g=1.,ncap=25000)
 
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -236,9 +236,10 @@ class FishBoneH:
         )
         w_list = g * np.array(alphaL)
         k_list = g * np.sqrt(np.array(betaL))
+        k_list[0] = k_list[0] / g
         return w_list, k_list
 
-    def build_coupling(self):
+    def build_coupling(self,g, ncap=20000):
         L = [[a, b] for a, b in zip(self._ebL, self._vbL)]
         # print("L", L)
         for n, sdn in enumerate(self._sd):
@@ -246,7 +247,7 @@ class FishBoneH:
                 for a, sdn_i in enumerate(sdn_il):
                     # print("ni",n,i)
                     self.w_list[n][i], self.k_list[n][i] = \
-                        self.get_coupling(L[n][i], sdn_i, self.domain, g=1., ncap=600)
+                        self.get_coupling(L[n][i], sdn_i, self.domain, g, ncap)
 
     def get_h1(self, n, c=None) -> tuple:
         """
@@ -396,8 +397,8 @@ class FishBoneH:
                 h2eb[-1] = (h, self._ebD[n][-1], d_of_e)
             return h2eb + h2ev + h2vb
 
-    def build(self):
-        self.build_coupling()
+    def build(self,g,ncap):
+        self.build_coupling(g, ncap)
         # TODO Gotta check the existences of Hee,
         #  Hev, H_dy's, sd and stuff.
         H = []
@@ -430,6 +431,105 @@ class FishBoneH:
                 U[i][j] = u
         return U
 
+
+class SpinBoson():
+    def __init__(self,pd):
+        self.pd_spin = pd[-1]
+        self.pd_boson = pd[0:-1]
+        self.sd = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
+        self.domain = [0,1]
+        self.he_dy = np.eye(self.pd_spin)
+        self.h1e = np.eye(self.pd_spin)
+        self.k_list = []
+        self.w_lsit = []
+        self.H = []
+
+    def get_coupling(self, n, j, domain, g, ncap=20000):
+        alphaL, betaL = rc.recurrenceCoefficients(
+            n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
+        )
+        w_list = g * np.array(alphaL)
+        k_list = g * np.sqrt(np.array(betaL))
+        k_list[0] = k_list[0]/g
+        return w_list, k_list
+
+    def build_coupling(self, g, ncap):
+        n = len(self.pd_boson)
+        self.w_list, self.k_list = self.get_coupling(n, self.sd,self.domain,g,ncap)
+
+    def get_h1(self):
+        w_list = self.w_list[::-1]
+        h1 = []
+        for i,w in enumerate(w_list):
+            c = _c(self.pd_boson[i])
+            h1.append(w*c.T@c)
+        h1.append(self.h1e)
+        return h1
+
+    def get_h2(self):
+        h1 = self.get_h1()
+        k_list = self.k_list[::-1]
+        k0 = k_list[0]
+        k_list = k_list[1:]
+        h2 = []
+        for i, k in enumerate(k_list):
+            d1 = self.pd_boson[i]
+            d2 = self.pd_boson[i+1]
+            c1 = _c(d1)
+            c2 = _c(d2)
+            coup = k*(np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            site = np.kron(h1[i], np.eye(d2))
+            h2.append((coup+site,d1,d2))
+        d1 = self.pd_boson[-1]
+        d2 = self.pd_spin
+        c0 = _c(d1)
+        coup = k0* np.kron(c0+c0.T, self.he_dy)
+        site = np.kron(h1[-2], np.eye(d2)) + np.kron(np.eye(d1), h1[-1])
+        h20 = coup + site
+        print("h20", h20.shape)
+        h2.append((h20, d1, d2))
+        return h2
+
+    def get_h2_only(self):
+        k_list = self.k_list[::-1]
+        print("k_list", k_list)
+        k0 = k_list[-1]
+        k_list = k_list[0:-1]
+        h2 = []
+        for i, k in enumerate(k_list):
+            d1 = self.pd_boson[i]
+            d2 = self.pd_boson[i+1]
+            c1 = _c(d1)
+            c2 = _c(d2)
+            coup = k*(np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            print("K is", k)
+            h2.append(coup)
+            print(c1,c2)
+        d1 = self.pd_boson[-1]
+        d2 = self.pd_spin
+        c0 = _c(d1)
+        coup = k0* np.kron(c0+c0.T, self.he_dy)
+        h20 = coup
+        print("h20", h20.shape)
+        h2.append(h20)
+        return h2
+
+    def build(self,g,ncap=20000):
+        self.build_coupling(g,ncap)
+        hee = self.get_h2()
+        self.H = hee
+
+    def get_u(self, dt):
+        U = dcopy(self.H)
+        for i, h_d1_d2 in enumerate(self.H):
+            h, d1, d2 = h_d1_d2
+            print(h.shape,d1,d2)
+            u = calc_U(h, dt)
+            r0 = r1 = d1  # physical dimension for site A
+            s0 = s1 = d2  # physical dimension for site B
+            u = u.reshape([r0, s0, r1, s1])
+            U[i] = u
+        return U
 
 if __name__ == "__main__":
     a = [3, 3, 3]
