@@ -2,7 +2,7 @@ import numpy as np
 import sys
 from scipy.linalg import expm
 from numpy import exp
-import recurrence_coefficients as rc
+import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 
 
@@ -29,13 +29,10 @@ def _c(dim: int):
 
 def eye(d):
     if d == [] or None:
-        print("None")
         return None
     elif type(d) is int or d is str:
-        print("INT")
         return np.eye(int(d))
     elif type(d) is list or np.ndarray:
-        print("List")
         return np.eye(*d)
 
 
@@ -58,7 +55,6 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    # print(H)
     return expm(-dt * 1j * H)
 
 
@@ -85,15 +81,11 @@ class FishBoneH:
 
     @property
     def H(self):
-        if not self.w_list or not self.k_list:
-            print("K and W dont exist. ", file=sys.stderr)
-            raise IndexError
-        else:
-            return self._H
+        return self._H
 
     @property
     def _sd(self):
-        return [[_to_list(x) for x in y] for y in self.sd]
+        return self.sd
 
     # @sd.setter
     # def _sd(self, m):
@@ -119,7 +111,7 @@ class FishBoneH:
 
     @property
     def h2ee(self):
-        return [_to_list(x) for x in self._h2ee]
+        return self._h2ee
 
     @h2ee.setter
     def h2ee(self, m):
@@ -128,7 +120,7 @@ class FishBoneH:
 
     @property
     def h2ev(self):
-        return [_to_list(x) for x in self._h2ev]
+        return self._h2ev
 
     @h2ev.setter
     def h2ev(self, m):
@@ -170,9 +162,9 @@ class FishBoneH:
         self._eL = [len(x) for x in self._pd[:, 1]]
         self._vL = [len(x) for x in self._pd[:, 2]]
         self._evL = [x + y for x, y in zip(self._eL, self._vL)]
-        # pD[:,1] is the second column of the array, the ev column
+        # pD[:,2] is the third column of the array, the ev column
         self._vbL = [len(x) for x in pd[:, 3]]
-        # pD[:,2] is the third column of the array, the vb column
+        # pD[:,3] is the fourth column of the array, the vb column
         self._L = [sum(x) for x in zip(self._ebL, self._evL, self._vbL)]
         self._ebD = self._pd[:, 0]
         self._eD = self._pd[:, 1]
@@ -187,7 +179,7 @@ class FishBoneH:
         # | eb2 ev2 vb2 | is the same as the structure depicted in SimpleTTS class.
 
         self.sd = np.empty([self._nc, 2], dtype=object)
-        self.domain = [-1, 1]
+        self.domain = []
         # TODO two lists. w is frequency, k is coupling.
         #  Get them from the function `get_coupling`
 
@@ -215,7 +207,6 @@ class FishBoneH:
         #        [Heb00, Heb01, ..., Hev1, Hvb00, Hvb01, ..., Hvb0N, None]
         #      ] in the case of 3 chains.
         self._h1e = [eye(d) for d in self._eD]
-        print(self._vD)
         # list -> single Hamiltonian on e site. None as a placeholder if the p-leg is [].
         self._h1v = [eye(d) for d in self._vD]
         # list -> single Hamiltonian on v site. None as a placeholder if the p-leg is [].
@@ -225,10 +216,7 @@ class FishBoneH:
                       zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
         self._he_dy = [eye(d) for d in self._eD]  # list -> e dynamic variables coupled to eb
         self._hv_dy = [eye(d) for d in self._vD]  # list -> v dynamic variables coupled to vb
-        print("H!E", self._h1v)
-        print("H!E", [np.eye(d[0]) for d in self._eD])
-        print("EYE", self._pd)
-        self.build(g=1.,ncap=25000)
+        # self.build(g=1.,ncap=25000)
 
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -240,14 +228,20 @@ class FishBoneH:
         return w_list, k_list
 
     def build_coupling(self,g, ncap=20000):
-        L = [[a, b] for a, b in zip(self._ebL, self._vbL)]
-        # print("L", L)
-        for n, sdn in enumerate(self._sd):
-            for i, sdn_il in enumerate(sdn):
-                for a, sdn_i in enumerate(sdn_il):
-                    # print("ni",n,i)
-                    self.w_list[n][i], self.k_list[n][i] = \
-                        self.get_coupling(L[n][i], sdn_i, self.domain, g, ncap)
+        number_of_chains = self._nc
+        for n in range(number_of_chains):
+            len_of_eb = self._ebL[n]
+            len_of_vb = self._vbL[n]
+            if len_of_eb != 0:
+                self.w_list[n][0], self.k_list[n][0] = \
+                    self.get_coupling(len_of_eb, self.sd[n, 0], self.domain, g, ncap)
+            else:
+                self.w_list[n][0], self.k_list[n][0] = [], []
+            if len_of_vb != 0:
+                self.w_list[n][1], self.k_list[n][1] = \
+                    self.get_coupling(len_of_vb, self.sd[n, 1], self.domain, g, ncap)
+            else:
+                self.w_list[n][1], self.k_list[n][1] = [], []
 
     def get_h1(self, n, c=None) -> tuple:
         """
@@ -264,17 +258,15 @@ class FishBoneH:
             Generates h1eb
             """
             w_list = self.w_list[n][0]
-            pd = self._pd[n, 0]  # -> Physical dimensions of sites ->
-            # on eb of the nth chain.
-            # n -> the nth chain, 0 -> the 1st element -> w_list for eb.
+            pd = self._pd[n, 0]
+            # Physical dimensions of sites -> on eb of the nth chain.
             # h1eb: EB Hamiltonian list
 
-            h1eb = [None] * len(pd)
+            h1eb = [None] * len(w_list)
+            w_list = w_list[::-1]
             for i, w in enumerate(w_list):
-                c = _c(pd[-1 - i])
-                print("w is", w, n, i)
-                h1eb[-1 - i] = w * c.T @ c
-                # print("n i and w", n, i, w)
+                c = _c(pd[i])
+                h1eb[i] = w * c.T @ c
             # If w_list = [], so as pd = [],then h1eb becomes []
 
             """
@@ -282,148 +274,191 @@ class FishBoneH:
             """
             w_list = self.w_list[n][1]
             pd = self._pd[n, 3]
-            # print("pd and w_list are", w_list, pd)
             # n -> the nth chain, 0 -> the 3rd element -> w_list for vb.
-            h1vb = [None] * len(pd)  # VB Hamiltonian list on the chain n
+            h1vb = [None] * len(w_list)  # VB Hamiltonian list on the chain n
             for i, w in enumerate(w_list):
                 c = _c(pd[i])
-                # print("w=", w, n, i)
                 h1vb[i] = w * c.T @ c
             # EV single Hamiltonian list on the chain n
-            # print(self.h1e, self.h1v)
-            h1ev = [self.h1e[n], self.h1v[n]]
-            return h1eb, h1ev, h1vb
+            print("n", n)
+            if self._vD[n] != []:
+                h1ev_list = self.h1e[n] + self.h1v[n]
+            else:
+                h1ev_list = self.h1e[n]
+            return h1eb, h1ev_list, h1vb
         else:
             raise ValueError
 
     def get_h_total(self, n):
-        if n == -1:
-            e = self.h1e
-            print("E", self._h1v)
+        if n == -1  and self._nc > 1:
+            e = self._h1e.copy()
+            print("_h1e", e)
             for i, d in enumerate(self._eD[1:]):
-                e[i] = kron(e[i][0], eye(d))
-            e[-1] = kron(eye(self._eD[-1]), e[-1][0])
-
+                print("d", d)
+                e[i] = kron(e[i], eye(d))
+            e[-1] = kron(eye(self._eD[-1]), e[-1])
+            print("e", e)
             ee = self.h2ee
-            # print("e=", e)
-            # print("ee=", ee)
-
-            h2ee = [(e[n][0] + ee[n][0], self._eD[i][0], self._eD[i + 1][0]) for i in range(self._nc - 1)]
-            h2ee[-1] = (h2ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
-            # print("Total h2ee is", h2ee[-2])
-
-            return h2ee
+            print("h2ee", ee)
+            h_total_ee = [(e[n]+ ee[n], self._eD[i][0], self._eD[i + 1][0]) for i in range(self._nc - 1)]
+            h_total_ee[-1] = (h_total_ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
+            return h_total_ee
+        elif n == -1 and self._nc == 1:
+            raise SystemError
 
         if 0 <= n <= self._nc - 1:
-            h1eb, _, h1vb = self.get_h1(n)
-            # print("h1eb", h1eb)
-            pd = self._pd[n, 0]
-            kL = self.k_list[n][0]
-            # kL is a list of k's (coupling constants). Index 0 indicates eb
+            h1eb, h1ev, h1vb = self.get_h1(n)
             # Start to generate ev Hamiltonian lists
-            if kL != [] and pd != []:
-                k0, kn = kL[0], kL[1:-1]
-                # print("k0", k0)
-                w0 = self.w_list[n][0][0]
-                # print("kn is", kn,type(kn))
-                kn = kn[::-1]
+            pd_eb = self._pd[n, 0]  # pd_eb is a list
+            kL = self.k_list[n][0][::-1]
+            # kL is a list of k's (coupling constants). Index 0 indicates eb
+            if kL != [] and pd_eb != []:
+                k0, kn = kL[-1], kL[0:-1]
                 h2eb = []
                 for i, k in enumerate(kn):
-                    r0, r1 = pd[i], pd[i + 1]
-                    print("r0,r1", r0, r1)
+                    r0, r1 = pd_eb[i], pd_eb[i + 1]
                     c1 = _c(r0);
                     c2 = _c(r1)
                     h1 = h1eb[i]
-                    print("k=", k, n, i)
                     h2 = kron(h1, eye(r1)) + k * (kron(c1.T, c2) + kron(c1, c2.T))
                     h2eb.append((h2, r0, r1))
                 # The following requires that we must have a e site.
-                c0 = _c(pd[-1])
-                pdE = self._pd[n, 1][0]
+                c0 = _c(pd_eb[-1])
+                pd_e = self._pd[n, 1][0] # pd_e is a number
                 # TODO: add an condition to determine if the dimensions match.
-                # print("Chain n h1e", self.h1e[n])
-                h2eb0 = np.kron(h1eb[-1], np.eye(pdE)) + k0 * np.kron((c0 + c0.T), self.he_dy[n])
-                h2eb.append((h2eb0, pd[-1], pdE))
+                h2eb0 = np.kron(h1eb[-1], np.eye(pd_e)) + k0 * np.kron((c0 + c0.T), self.he_dy[n])
+                h2eb.append((h2eb0, pd_eb[-1], pd_e))
             else:
                 h2eb = []
 
-            pd = self._pd[n, 3]  # 3 indicates the vb list
+            pd_vb = self._pd[n, 3]  # 3 indicates the vb list
             kL = self.k_list[n][1]
-            wL = self.w_list[n][1]
             # kL is a list of k's (coupling constants) 0 indicates eb
-            if kL != [] and pd != []:
-                k0, kn = kL[0], kL[1:];
-                w0 = wL[0]
-                c0 = _c(pd[0])
-                pdV = self._pd[n, 2][0]
-                dvb1 = h1vb[0].shape[0]
+            if kL != [] and pd_vb != []:
+                k0, kn = kL[0], kL[1:]
+                c0 = _c(pd_vb[0])
+                pd_v = self._pd[n, 2][0]  # pd_v is a number
+                pd_vb1 = h1vb[0].shape[0]
+                assert pd_vb1 == pd_vb[0]
                 h2vb0 = k0 * np.kron(self.hv_dy[n], c0 + c0.T) + \
-                        kron(self.h1v[n], eye(dvb1))
-
-                h2vb = [(h2vb0, pdV, pd[0])]
+                        kron(self.h1v[n], eye(pd_vb1))
+                h2vb = [(h2vb0, pd_v, pd_vb1)]
                 for i, k in enumerate(kn):
-                    r0, r1 = pd[i], pd[i + 1]
+                    r0, r1 = pd_vb[i], pd_vb[i + 1]
                     c0 = _c(r0);
                     c1 = _c(r1)
                     h1 = h1vb[i]
                     h2 = kron(h1, eye(r1)) + k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
-
             else:
                 h2vb = []
 
-            # TODO. Calculate h2ev
             h2ev = []
-            if self._vbD[n] != []:
-                for h in self.h2ev[n]:
-                    r0 = self._eD[n][0]
-                    r1 = self._vD[n][0]
-                    h = h + kron(self.h1e[n], eye(self._vD[n]))
-                    h2ev.append((h, r0, r1))
-            elif self._vD[n] != []:
-                for h in self.h2ev[n]:
-                    r0 = self._eD[n][0]
-                    r1 = self._vD[n][0]
-                    h = h + kron(self.h1e[n], eye(self._vD[n])) + kron(eye(r0), self.h1v[n])
-                    h2ev.append((h, r0, r1))
-            else:
-                print("H@EB", h2eb[-1])
-                h = h2eb[-1][0] + kron(eye(self._ebD[n][-1]), self.h1e[n])
-                he = self.h1e[n][0]
-                print("H@EB", he)
+            if self._vbD[n] != [] and self._vD[n] != []:
+                h2_ev = self._h2ev[n]
+                r0 = self._eD[n][0]
+                r1 = self._vD[n][0]
+                h2_ev = h2_ev + kron(self._h1e[n], eye(r1))
+                h2ev.append((h2_ev, r0, r1))
+            if self._vbD[n] == [] and self._vD[n] != []:
+                h2_ev = self.h2ev[n]
+                r0 = self._eD[n][0]
+                r1 = self._vD[n][0]
+                h2_ev = h2_ev + kron(self._h1e[n], eye(r1)) + kron(eye(r0), self._h1v[n])
+                h2ev.append((h2_ev, r0, r1))
+            elif h2eb != []:
+                print("Shape",kron(eye(self._ebD[n][-1]), self._h1e[n]).shape, eye(self._ebD[n][-1]).shape, self._h1e[n].shape)
+                h2_ev = h2eb[-1][0] + kron(eye(self._ebD[n][-1]), self._h1e[n])
+                he = self._h1e[n]
                 d_of_e = he.shape[0]
-                print("h.shape", h.shape)
-                h2eb[-1] = (h, self._ebD[n][-1], d_of_e)
+                h2eb[-1] = (h2_ev, self._ebD[n][-1], d_of_e)
             return h2eb + h2ev + h2vb
 
-    def build(self,g,ncap):
+    def get_h2(self, n):
+        if n == -1 and self._nc >1:
+            h_total_ee = self.h2ee.copy()
+            return h_total_ee
+
+        if 0 <= n <= self._nc - 1:
+            # Start to generate ev Hamiltonian lists
+            pd_eb = self._pd[n, 0]  # pd_eb is a list
+            kL = self.k_list[n][0][::-1]
+            # kL is a list of k's (coupling constants). Index 0 indicates eb
+            if kL != [] and pd_eb != []:
+                k0, kn = kL[-1], kL[0:-1]
+                h2eb = []
+                for i, k in enumerate(kn):
+                    r0, r1 = pd_eb[i], pd_eb[i + 1]
+                    c1 = _c(r0);
+                    c2 = _c(r1)
+                    h2 = k * (kron(c1.T, c2) + kron(c1, c2.T))
+                    h2eb.append((h2, r0, r1))
+                # The following requires that we must have a e site.
+                c0 = _c(pd_eb[-1])
+                pd_e = self._pd[n, 1][0] # pd_e is a number
+                # TODO: add an condition to determine if the dimensions match.
+                h2eb0 = k0 * np.kron((c0 + c0.T), self.he_dy[n])
+                h2eb.append((h2eb0, pd_eb[-1], pd_e))
+            else:
+                h2eb = []
+
+            pd_vb = self._pd[n, 3]  # 3 indicates the vb list
+            kL = self.k_list[n][1]
+            # kL is a list of k's (coupling constants) 0 indicates eb
+            if kL != [] and pd_vb != []:
+                k0, kn = kL[0], kL[1:]
+                c0 = _c(pd_vb[0])
+                pd_v = self._pd[n, 2][0]  # pd_v is a number
+                pd_vb1 = pd_vb[0]
+                h2vb0 = k0 * np.kron(self.hv_dy[n], c0 + c0.T)
+                h2vb = [(h2vb0, pd_v, pd_vb1)]
+                for i, k in enumerate(kn):
+                    r0, r1 = pd_vb[i], pd_vb[i + 1]
+                    c0 = _c(r0);
+                    c1 = _c(r1)
+                    h2 =  k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
+                    # h2.shape is (m*n, m*n)
+                    h2vb.append((h2, r0, r1))
+            else:
+                h2vb = []
+
+            h2ev = []
+            if self._vbD[n] != [] and self._vD[n] != []:
+                h2_ev = self._h2ev[n]
+                r0 = self._eD[n][0]
+                r1 = self._vD[n][0]
+                h2ev.append((h2_ev, r0, r1))
+            elif self._vbD[n] == [] and self._vD[n] != []:
+                h2_ev = self.h2ev[n]
+                r0 = self._eD[n][0]
+                r1 = self._vD[n][0]
+                h2_ev = h2_ev
+                h2ev.append((h2_ev, r0, r1))
+            return h2eb + h2ev + h2vb
+
+
+    def build(self,g,ncap=20000):
         self.build_coupling(g, ncap)
         # TODO Gotta check the existences of Hee,
         #  Hev, H_dy's, sd and stuff.
         H = []
-        hee = self.get_h_total(-1)
         for n in range(self._nc):
-            # print("n======", n)
             h = self.get_h_total(n)
-            # print("get_h2 is", h)
             H.append(h)
-        # print("H is", H)
-        for n in range(self._nc - 1):
-            # print("Hee_n is", hee[n])
-            H[n].append(hee[n])
+        if self._nc > 1:
+            h2_ee = self.get_h_total(-1)
+            for n in range(self._nc - 1):
+                H[n].append(h2_ee[n])
         self._H = H
 
     def get_u(self, dt):
         # TODO, change the definition of h2e, to strictly follow the even-odd pattern.
         #  Done but need double check ↑.
-        # print("H0 is", self.H[0])
         U = dcopy(self.H)
         for i, r in enumerate(self.H):
             for j, s in enumerate(r):
                 h = self.H[i][j][0]
-                # print("ij=====", i, j)
-                # print("h======", self.H[i][j], self.H[i][j][0].shape)
                 u = calc_U(h, dt)
                 r0 = r1 = self.H[i][j][1]  # physical dimension for site A
                 s0 = s1 = self.H[i][j][2]  # physical dimension for site B
@@ -486,13 +521,11 @@ class SpinBoson():
         coup = k0* np.kron(c0+c0.T, self.he_dy)
         site = np.kron(h1[-2], np.eye(d2)) + np.kron(np.eye(d1), h1[-1])
         h20 = coup + site
-        print("h20", h20.shape)
         h2.append((h20, d1, d2))
         return h2
 
     def get_h2_only(self):
         k_list = self.k_list[::-1]
-        print("k_list", k_list)
         k0 = k_list[-1]
         k_list = k_list[0:-1]
         h2 = []
@@ -502,13 +535,10 @@ class SpinBoson():
             c1 = _c(d1)
             c2 = _c(d2)
             coup = k*(np.kron(c1.T, c2) + np.kron(c1, c2.T))
-            print("K is", k)
             h2.append(coup)
-            print(c1,c2)
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
-        print()
         coup = k0* np.kron(c0+c0.T, self.he_dy)
         h20 = coup
         h2.append(h20)
@@ -523,7 +553,6 @@ class SpinBoson():
         U = dcopy(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            print(h.shape,d1,d2)
             u = calc_U(h, dt)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
