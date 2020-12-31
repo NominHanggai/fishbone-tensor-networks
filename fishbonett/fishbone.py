@@ -129,7 +129,6 @@ class FishBoneNet:
         if n == -1 and 0 <= i <= max_index_main:
             theta_lower = self.get_theta1(i + 1, self._ebL[i + 1])
             s_inverse_middle = np.diag(self.ttnS[i+1][-1] ** (-1))
-            print("SHAPE", theta_lower.shape, s_inverse_middle.shape)
             lower_gamma_down_canonical = np.tensordot(
                 theta_lower,
                 s_inverse_middle,
@@ -352,7 +351,6 @@ class FishBoneNet:
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
 
             elif 0 <= i <= max_index_n:
-                print("Hshape", self.U[n][i].shape, theta.shape)
                 Utheta = np.einsum('IJKL,aKLh->aIJh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i], [j] vR}
                 # {I J  K   L}      {a   b,   e   h}

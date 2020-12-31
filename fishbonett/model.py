@@ -216,8 +216,8 @@ class FishBoneH:
                       zip(self._eD, self._vD)]  # list -> coupling Hamiltonian on e and v
         self._he_dy = [eye(d) for d in self._eD]  # list -> e dynamic variables coupled to eb
         self._hv_dy = [eye(d) for d in self._vD]  # list -> v dynamic variables coupled to vb
-        # self.build(g=1.,ncap=25000)
 
+    @classmethod
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
             n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
@@ -234,12 +234,12 @@ class FishBoneH:
             len_of_vb = self._vbL[n]
             if len_of_eb != 0:
                 self.w_list[n][0], self.k_list[n][0] = \
-                    self.get_coupling(len_of_eb, self.sd[n, 0], self.domain, g, ncap)
+                self.get_coupling(len_of_eb, self.sd[n, 0], self.domain, g, ncap)
             else:
                 self.w_list[n][0], self.k_list[n][0] = [], []
             if len_of_vb != 0:
                 self.w_list[n][1], self.k_list[n][1] = \
-                    self.get_coupling(len_of_vb, self.sd[n, 1], self.domain, g, ncap)
+                self.get_coupling(len_of_vb, self.sd[n, 1], self.domain, g, ncap)
             else:
                 self.w_list[n][1], self.k_list[n][1] = [], []
 
@@ -280,7 +280,6 @@ class FishBoneH:
                 c = _c(pd[i])
                 h1vb[i] = w * c.T @ c
             # EV single Hamiltonian list on the chain n
-            print("n", n)
             if self._vD[n] != []:
                 h1ev_list = self.h1e[n] + self.h1v[n]
             else:
@@ -292,14 +291,11 @@ class FishBoneH:
     def get_h_total(self, n):
         if n == -1  and self._nc > 1:
             e = self._h1e.copy()
-            print("_h1e", e)
             for i, d in enumerate(self._eD[1:]):
-                print("d", d)
                 e[i] = kron(e[i], eye(d))
             e[-1] = kron(eye(self._eD[-1]), e[-1])
-            print("e", e)
+
             ee = self.h2ee
-            print("h2ee", ee)
             h_total_ee = [(e[n]+ ee[n], self._eD[i][0], self._eD[i + 1][0]) for i in range(self._nc - 1)]
             h_total_ee[-1] = (h_total_ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
             return h_total_ee
@@ -347,8 +343,9 @@ class FishBoneH:
                     r0, r1 = pd_vb[i], pd_vb[i + 1]
                     c0 = _c(r0);
                     c1 = _c(r1)
-                    h1 = h1vb[i]
-                    h2 = kron(h1, eye(r1)) + k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
+                    h_site1 = kron(h1vb[i], eye(r1))
+                    h_coup = k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
+                    h2 =  h_site1 + h_coup
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
             else:
@@ -368,17 +365,18 @@ class FishBoneH:
                 h2_ev = h2_ev + kron(self._h1e[n], eye(r1)) + kron(eye(r0), self._h1v[n])
                 h2ev.append((h2_ev, r0, r1))
             elif h2eb != []:
-                print("Shape",kron(eye(self._ebD[n][-1]), self._h1e[n]).shape, eye(self._ebD[n][-1]).shape, self._h1e[n].shape)
                 h2_ev = h2eb[-1][0] + kron(eye(self._ebD[n][-1]), self._h1e[n])
                 he = self._h1e[n]
                 d_of_e = he.shape[0]
                 h2eb[-1] = (h2_ev, self._ebD[n][-1], d_of_e)
             return h2eb + h2ev + h2vb
+        else:
+            raise ValueError
 
     def get_h2(self, n):
         if n == -1 and self._nc >1:
-            h_total_ee = self.h2ee.copy()
-            return h_total_ee
+            h2_ee = self.h2ee
+            return h2_ee
 
         if 0 <= n <= self._nc - 1:
             # Start to generate ev Hamiltonian lists
