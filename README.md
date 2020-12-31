@@ -1,6 +1,4 @@
-# fishbonett
-
-🐟
+# fishbonett 🐟
 
 ## About
 **fishbonett** is a Python package for propagating the dynamics of multi-site vibronic model systems that have
