@@ -109,8 +109,8 @@ def recurrenceCoefficients(n, lb, rb, j, g, ncap=60000):
 
     # ToDo: Check if ncap <= 60000 is system dependent or holds everywhere
 
-    if ncap > 60000:
-        raise ValueError("ncap <= 60000 is not fulfilled")
+    # if ncap > 60000:
+    #     raise ValueError("ncap <= 60000 is not fulfilled")
 
     if n > ncap:
         raise ValueError("n must be smaller than ncap.")
