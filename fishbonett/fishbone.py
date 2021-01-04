@@ -2,7 +2,7 @@ import numpy as np
 import sys
 from scipy.linalg import svd, expm
 from copy import deepcopy as dcopy
-import itertools
+
 
 
 class FishBoneNet:
@@ -473,10 +473,21 @@ def init(pd):
         (eb_s, e_s, v_s, vb_s_and_main_s)
     )
 
-
+# from numba.types import List, Array
+# from numba.experimental import jitclass
+# from numba import int8, float32, complex64
+# spec = [
+#     ('pd', int8[:]),
+#     ('pd_spin', int8[:]),
+#     ('B', List(Array(float32, 2, 'C'))),
+#     ('S', List(Array(float32, 1, 'C'))),
+#     ('U', List(Array(complex64, 2, 'C')))
+# ]
+# @jitclass(spec)
 class SpinBoson1D:
+
     def __init__(self, pd):
-        def g_state(dim):
+        def g_state(dim: int):
             tensor = np.zeros(dim)
             tensor[(0,)*len(dim)] = 1.
             return tensor
@@ -484,22 +495,23 @@ class SpinBoson1D:
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1,d,1]) for d in pd]
         self.S = [np.ones([1], np.float) for d in pd]
-        self.U = [None for d in pd[1:]]
+        self.U = [np.zeros(0) for d in pd[1:]]
 
-    def get_theta1(self, i):
+    def get_theta1(self, i: int):
         return np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
 
-    def get_theta2(self, i):
+    def get_theta2(self, i: int):
         j = (i + 1)
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i, chi_max, eps):
+    def split_truncate_theta(self, theta, i:int, chi_max:int, eps:float):
         (chi_left_on_left, phys_left,
          phys_right, chi_right_on_right) = theta.shape
         theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                    phys_right * chi_right_on_right])
         A, S, B = svd(theta, full_matrices=False)
         chivC = min(chi_max, np.sum(S > eps))
+        print("Error Is", sum(S[chivC:]), chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -512,7 +524,7 @@ class SpinBoson1D:
         self.B[i] = A
         self.B[i+1] = B
 
-    def update_bond(self,i, chi_max, eps):
+    def update_bond(self,i: int, chi_max: int, eps: float):
         theta = self.get_theta2(i)
         U_bond = self.U[i]
         Utheta = np.tensordot(U_bond, theta, axes=([2, 3], [1, 2]))  # i j [i*] [j*], vL [i] [j] vR

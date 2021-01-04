@@ -4,8 +4,9 @@ from scipy.linalg import expm
 from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
+from numba import jit, complex64, float64
 
-
+@jit
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -26,7 +27,7 @@ def _c(dim: int):
         op[i, i + 1] = np.sqrt(i + 1)
     return op
 
-
+@jit
 def eye(d):
     if d == [] or None:
         return None
@@ -35,7 +36,7 @@ def eye(d):
     elif type(d) is list or np.ndarray:
         return np.eye(*d)
 
-
+@jit
 def kron(a, b):
     if a is None or b is None:
         return None
@@ -55,7 +56,8 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    return expm(-dt * 1j * H)
+    u = expm(-dt * 1j * H)
+    return u
 
 
 def _to_list(x):
@@ -464,8 +466,12 @@ class FishBoneH:
                 U[i][j] = u
         return U
 
+from numba import uint16
 
 class SpinBoson():
+    pd: uint16[:]
+    pd_boson: uint16[:]
+
     def __init__(self,pd):
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
