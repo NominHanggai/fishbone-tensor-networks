@@ -27,7 +27,7 @@ def _c(dim: int):
         op[i, i + 1] = np.sqrt(i + 1)
     return op
 
-@jit
+
 def eye(d):
     if d == [] or None:
         return None
@@ -36,7 +36,7 @@ def eye(d):
     elif type(d) is list or np.ndarray:
         return np.eye(*d)
 
-@jit
+
 def kron(a, b):
     if a is None or b is None:
         return None
