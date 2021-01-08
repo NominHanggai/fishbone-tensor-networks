@@ -5,9 +5,12 @@ from scipy.linalg import svd as csvd
 from copy import deepcopy as dcopy
 from sklearn.utils.extmath import randomized_svd as rsvd
 
+<<<<<<< HEAD
 def svd(A, b, full_matrices=False):
     # print("rsvd")
     return rsvd(A,b)
+=======
+>>>>>>> a78592945898d8320b3e4f16185b85336f208bef
 
 class FishBoneNet:
     """ Simple Tree Like Tensor-Product States
@@ -183,8 +186,9 @@ class FishBoneNet:
         v_index = self._ebL[n]
         if n == -1 and 0 <= i <= max_index_main:
             # {Up part: vL i vU vR; Down part: VL' j vD' vR'}
-            (chi_left_higher, phys_higher, chi_up_higher, chi_right_higher,
-             chi_left_lower, phys_lower, chi_down_lower, chi_right_lower) = theta.shape
+            (chi_left_higher, phys_higher, chi_up_higher,
+             chi_right_higher, chi_left_lower, phys_lower,
+             chi_down_lower, chi_right_lower) = theta.shape
             theta = np.reshape(theta, [chi_left_higher * phys_higher *
                                        chi_up_higher * chi_right_higher,
                                        chi_left_lower * phys_lower *
@@ -367,6 +371,7 @@ class FishBoneNet:
             # TODO error that n is out of range.
             # TODO Should echo n and number of chains
 
+
 def init_ttn(nc, L, d1, de, dv):
     """
     Initialize the SimpleTTN class.
@@ -431,7 +436,6 @@ def init_ttn(nc, L, d1, de, dv):
     )
 
 
-
 def init(pd):
     def g_state(dim):
         tensor = np.zeros(dim)
@@ -470,8 +474,8 @@ def init(pd):
     main_s = [[np.ones([1], np.float)] for chain_n in vb_tensor]
     vb_s_and_main_s = [vb_s[i] + vb_tensor[i] for i in range(nc)]
     # eb_tensor[0][0][0,0,0] = 1.
-    e_tensor[0][0][0,0,0,0,0] = 1/np.sqrt(2)
-    e_tensor[0][0][0,1,0,0,0] = 1/np.sqrt(2)
+    e_tensor[0][0][0, 0, 0, 0, 0] = 1/np.sqrt(2)
+    e_tensor[0][0][0, 1, 0, 0, 0] = 1/np.sqrt(2)
     return FishBoneNet(
         (eb_tensor, e_tensor, v_tensor, vb_tensor),
         (eb_s, e_s, v_s, vb_s_and_main_s)
@@ -489,6 +493,10 @@ def init(pd):
 # ]
 # @jitclass(spec)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> a78592945898d8320b3e4f16185b85336f208bef
 class SpinBoson1D:
 
     def __init__(self, pd):
@@ -498,7 +506,7 @@ class SpinBoson1D:
             return tensor
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
-        self.B = [g_state([1,d,1]) for d in pd]
+        self.B = [g_state([1, d, 1]) for d in pd]
         self.S = [np.ones([1], np.float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
 
@@ -509,7 +517,7 @@ class SpinBoson1D:
         j = (i + 1)
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i:int, chi_max:int, eps:float):
+    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float):
         (chi_left_on_left, phys_left,
          phys_right, chi_right_on_right) = theta.shape
         theta = np.reshape(theta, [chi_left_on_left * phys_left,
@@ -521,20 +529,26 @@ class SpinBoson1D:
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
         S = S / np.linalg.norm(S)
-        A = np.reshape(A, [chi_left_on_left, phys_left, chivC])  # A: {vL*i, chivC} -> vL i vR=chivC
-        B = np.reshape(B, [chivC, phys_right, chi_right_on_right])  # B: {chivC, j*vR} -> vL==chivC j vR
-        A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])  # vL [vL'] * [vL] i vR -> vL i vR
-        A = np.tensordot(A, np.diag(S), [2, 0])  # vL i [vR] * [vR] vR -> vL i vR
+        # A: {vL*i, chivC} -> vL i vR=chivC
+        A = np.reshape(A, [chi_left_on_left, phys_left, chivC])
+        # B: {chivC, j*vR} -> vL==chivC j vR
+        B = np.reshape(B, [chivC, phys_right, chi_right_on_right])
+        # vL [vL'] * [vL] i vR -> vL i vR
+        A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])
+        # vL i [vR] * [vR] vR -> vL i vR
+        A = np.tensordot(A, np.diag(S), [2, 0])
         self.S[i+1] = S
         self.B[i] = A
         self.B[i+1] = B
 
-    def update_bond(self,i: int, chi_max: int, eps: float):
+    def update_bond(self, i: int, chi_max: int, eps: float):
         theta = self.get_theta2(i)
         U_bond = self.U[i]
-        Utheta = np.tensordot(U_bond, theta, axes=([2, 3], [1, 2]))  # i j [i*] [j*], vL [i] [j] vR
+        # i j [i*] [j*], vL [i] [j] vR
+        Utheta = np.tensordot(U_bond, theta, axes=([2, 3], [1, 2]))
         Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
         self.split_truncate_theta(Utheta, i, chi_max, eps)
+
 
 if __name__ == "__main__":
     ttn = init(nc=4, L=3, d1=5, de=2, dv=10)
