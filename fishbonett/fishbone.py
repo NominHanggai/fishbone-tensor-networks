@@ -7,7 +7,7 @@ from sklearn.utils.extmath import randomized_svd as rsvd
 from opt_einsum import contract as einsum
 
 def svd(A, b, full_matrices=False):
-    if A.shape[0] <= 500:
+    if A.shape[0] >= 0:
         return csvd(A,full_matrices=False)
     else:
         return rsvd(A,b,n_oversamples=100)
@@ -196,6 +196,7 @@ class FishBoneNet:
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(
                 theta, chi_max, full_matrices=False)
             chivC = min(chi_max, np.sum(S > eps))
+            print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
             # keep the largest `chivC` singular values
             piv = np.argsort(S)[::-1][:chivC]
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = (
@@ -254,6 +255,7 @@ class FishBoneNet:
                     chi_down_on_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -278,6 +280,7 @@ class FishBoneNet:
                             phys_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -303,6 +306,7 @@ class FishBoneNet:
                                            phys_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -521,7 +525,7 @@ class SpinBoson1D:
                                    phys_right * chi_right_on_right])
         A, S, B = svd(theta, chi_max, full_matrices=False)
         chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", sum(S[chivC:]), chivC)
+        print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
