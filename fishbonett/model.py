@@ -6,6 +6,7 @@ import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from numba import jit, complex64, float64
 
+
 @jit
 def _c(dim: int):
     """
@@ -229,19 +230,19 @@ class FishBoneH:
         k_list[0] = k_list[0] / g
         return w_list, k_list
 
-    def build_coupling(self,g, ncap=20000):
+    def build_coupling(self, g, ncap=20000):
         number_of_chains = self._nc
         for n in range(number_of_chains):
             len_of_eb = self._ebL[n]
             len_of_vb = self._vbL[n]
             if len_of_eb != 0:
                 self.w_list[n][0], self.k_list[n][0] = \
-                self.get_coupling(len_of_eb, self.sd[n, 0], self.domain, g, ncap)
+                    self.get_coupling(len_of_eb, self.sd[n, 0], self.domain, g, ncap)
             else:
                 self.w_list[n][0], self.k_list[n][0] = [], []
             if len_of_vb != 0:
                 self.w_list[n][1], self.k_list[n][1] = \
-                self.get_coupling(len_of_vb, self.sd[n, 1], self.domain, g, ncap)
+                    self.get_coupling(len_of_vb, self.sd[n, 1], self.domain, g, ncap)
             else:
                 self.w_list[n][1], self.k_list[n][1] = [], []
 
@@ -291,14 +292,14 @@ class FishBoneH:
             raise ValueError
 
     def get_h_total(self, n):
-        if n == -1  and self._nc > 1:
+        if n == -1 and self._nc > 1:
             e = self._h1e.copy()
             for i, d in enumerate(self._eD[1:]):
                 e[i] = kron(e[i], eye(d))
             e[-1] = kron(eye(self._eD[-1]), e[-1])
 
             ee = self.h2ee
-            h_total_ee = [(e[n]+ ee[n], self._eD[i][0], self._eD[i + 1][0]) for i in range(self._nc - 1)]
+            h_total_ee = [(e[n] + ee[n], self._eD[i][0], self._eD[i + 1][0]) for i in range(self._nc - 1)]
             h_total_ee[-1] = (h_total_ee[-1][0] + e[-1], self._eD[-2][0], self._eD[-1][0])
             return h_total_ee
         elif n == -1 and self._nc == 1:
@@ -322,7 +323,7 @@ class FishBoneH:
                     h2eb.append((h2, r0, r1))
                 # The following requires that we must have a e site.
                 c0 = _c(pd_eb[-1])
-                pd_e = self._pd[n, 1][0] # pd_e is a number
+                pd_e = self._pd[n, 1][0]  # pd_e is a number
                 # TODO: add an condition to determine if the dimensions match.
                 h2eb0 = np.kron(h1eb[-1], np.eye(pd_e)) + k0 * np.kron((c0 + c0.T), self.he_dy[n])
                 h2eb.append((h2eb0, pd_eb[-1], pd_e))
@@ -347,7 +348,7 @@ class FishBoneH:
                     c1 = _c(r1)
                     h_site1 = kron(h1vb[i], eye(r1))
                     h_coup = k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
-                    h2 =  h_site1 + h_coup
+                    h2 = h_site1 + h_coup
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
             else:
@@ -376,7 +377,7 @@ class FishBoneH:
             raise ValueError
 
     def get_h2(self, n):
-        if n == -1 and self._nc >1:
+        if n == -1 and self._nc > 1:
             h2_ee = self.h2ee
             return h2_ee
 
@@ -396,7 +397,7 @@ class FishBoneH:
                     h2eb.append((h2, r0, r1))
                 # The following requires that we must have a e site.
                 c0 = _c(pd_eb[-1])
-                pd_e = self._pd[n, 1][0] # pd_e is a number
+                pd_e = self._pd[n, 1][0]  # pd_e is a number
                 # TODO: add an condition to determine if the dimensions match.
                 h2eb0 = k0 * np.kron((c0 + c0.T), self.he_dy[n])
                 h2eb.append((h2eb0, pd_eb[-1], pd_e))
@@ -417,7 +418,7 @@ class FishBoneH:
                     r0, r1 = pd_vb[i], pd_vb[i + 1]
                     c0 = _c(r0);
                     c1 = _c(r1)
-                    h2 =  k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
+                    h2 = k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
             else:
@@ -437,8 +438,7 @@ class FishBoneH:
                 h2ev.append((h2_ev, r0, r1))
             return h2eb + h2ev + h2vb
 
-
-    def build(self,g,ncap=20000):
+    def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
         # TODO Gotta check the existences of Hee,
         #  Hev, H_dy's, sd and stuff.
@@ -466,17 +466,14 @@ class FishBoneH:
                 U[i][j] = u
         return U
 
-from numba import uint16
 
 class SpinBoson():
-    pd: uint16[:]
-    pd_boson: uint16[:]
 
-    def __init__(self,pd):
+    def __init__(self, pd):
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.sd = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
-        self.domain = [0,1]
+        self.domain = [0, 1]
         self.he_dy = np.eye(self.pd_spin)
         self.h1e = np.eye(self.pd_spin)
         self.k_list = []
@@ -489,19 +486,19 @@ class SpinBoson():
         )
         w_list = g * np.array(alphaL)
         k_list = g * np.sqrt(np.array(betaL))
-        k_list[0] = k_list[0]/g
+        k_list[0] = k_list[0] / g
         return w_list, k_list
 
     def build_coupling(self, g, ncap):
         n = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(n, self.sd,self.domain,g,ncap)
+        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
     def get_h1(self):
         w_list = self.w_list[::-1]
         h1 = []
-        for i,w in enumerate(w_list):
+        for i, w in enumerate(w_list):
             c = _c(self.pd_boson[i])
-            h1.append(w*c.T@c)
+            h1.append(w * c.T @ c)
         h1.append(self.h1e)
         return h1
 
@@ -513,16 +510,16 @@ class SpinBoson():
         h2 = []
         for i, k in enumerate(k_list):
             d1 = self.pd_boson[i]
-            d2 = self.pd_boson[i+1]
+            d2 = self.pd_boson[i + 1]
             c1 = _c(d1)
             c2 = _c(d2)
-            coup = k*(np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            coup = k * (np.kron(c1.T, c2) + np.kron(c1, c2.T))
             site = np.kron(h1[i], np.eye(d2))
-            h2.append((coup+site,d1,d2))
+            h2.append((coup + site, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
-        coup = k0* np.kron(c0+c0.T, self.he_dy)
+        coup = k0 * np.kron(c0 + c0.T, self.he_dy)
         site = np.kron(h1[-2], np.eye(d2)) + np.kron(np.eye(d1), h1[-1])
         h20 = coup + site
         h2.append((h20, d1, d2))
@@ -535,21 +532,21 @@ class SpinBoson():
         h2 = []
         for i, k in enumerate(k_list):
             d1 = self.pd_boson[i]
-            d2 = self.pd_boson[i+1]
+            d2 = self.pd_boson[i + 1]
             c1 = _c(d1)
             c2 = _c(d2)
-            coup = k*(np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            coup = k * (np.kron(c1.T, c2) + np.kron(c1, c2.T))
             h2.append(coup)
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
-        coup = k0* np.kron(c0+c0.T, self.he_dy)
+        coup = k0 * np.kron(c0 + c0.T, self.he_dy)
         h20 = coup
         h2.append(h20)
         return h2
 
-    def build(self,g,ncap=20000):
-        self.build_coupling(g,ncap)
+    def build(self, g, ncap=20000):
+        self.build_coupling(g, ncap)
         hee = self.get_h2()
         self.H = hee
 
@@ -563,6 +560,7 @@ class SpinBoson():
             u = u.reshape([r0, s0, r1, s1])
             U[i] = u
         return U
+
 
 if __name__ == "__main__":
     a = [3, 3, 3]

@@ -1,9 +1,13 @@
 import numpy as np
 import sys
-from scipy.linalg import svd, expm
+from scipy.linalg import expm
+from scipy.linalg import svd as csvd
 from copy import deepcopy as dcopy
+from sklearn.utils.extmath import randomized_svd as rsvd
 
-
+def svd(A, b, full_matrices=False):
+    # print("rsvd")
+    return rsvd(A,b)
 
 class FishBoneNet:
     """ Simple Tree Like Tensor-Product States
@@ -186,7 +190,7 @@ class FishBoneNet:
                                        chi_left_lower * phys_lower *
                                        chi_down_lower * chi_right_lower])
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(
-                theta, full_matrices=False)
+                theta, chi_max, full_matrices=False)
             chivC = min(chi_max, np.sum(S > eps))
             # keep the largest `chivC` singular values
             piv = np.argsort(S)[::-1][:chivC]
@@ -244,7 +248,7 @@ class FishBoneNet:
                     chi_left_on_left * phys_left,
                     phys_right * chi_up_on_right *
                     chi_down_on_right * chi_right_on_right])
-                A, S, B = svd(theta, full_matrices=False)
+                A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
@@ -268,7 +272,7 @@ class FishBoneNet:
                 theta = np.reshape(
                     theta, [chi_left_on_left * phys_left * chiU_l * chiD_l,
                             phys_right * chi_right_on_right])
-                A, S, B = svd(theta, full_matrices=False)
+                A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
@@ -293,7 +297,7 @@ class FishBoneNet:
                  phys_right, chi_right_on_right) = theta.shape
                 theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                            phys_right * chi_right_on_right])
-                A, S, B = svd(theta, full_matrices=False)
+                A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
@@ -484,6 +488,7 @@ def init(pd):
 #     ('U', List(Array(complex64, 2, 'C')))
 # ]
 # @jitclass(spec)
+
 class SpinBoson1D:
 
     def __init__(self, pd):
@@ -509,7 +514,7 @@ class SpinBoson1D:
          phys_right, chi_right_on_right) = theta.shape
         theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                    phys_right * chi_right_on_right])
-        A, S, B = svd(theta, full_matrices=False)
+        A, S, B = svd(theta, chi_max, full_matrices=False)
         chivC = min(chi_max, np.sum(S > eps))
         print("Error Is", sum(S[chivC:]), chivC)
         # keep the largest `chivC` singular values
