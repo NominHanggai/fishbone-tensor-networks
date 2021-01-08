@@ -7,7 +7,7 @@ from sklearn.utils.extmath import randomized_svd as rsvd
 from opt_einsum import contract as einsum
 
 def svd(A, b, full_matrices=False):
-    if A.shape[0] >= 0:
+    if A.shape[0] >= 400:
         return csvd(A,full_matrices=False)
     else:
         return rsvd(A,b,n_oversamples=100)
