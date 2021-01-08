@@ -4,14 +4,13 @@ from scipy.linalg import expm
 from scipy.linalg import svd as csvd
 from copy import deepcopy as dcopy
 from sklearn.utils.extmath import randomized_svd as rsvd
+from opt_einsum import contract as einsum
 
-<<<<<<< HEAD
 def svd(A, b, full_matrices=False):
-    # print("rsvd")
-    return rsvd(A,b)
-=======
->>>>>>> a78592945898d8320b3e4f16185b85336f208bef
-
+    if A.shape[0] >= 0:
+        return csvd(A,full_matrices=False)
+    else:
+        return rsvd(A,b)
 class FishBoneNet:
     """ Simple Tree Like Tensor-Product States
                          ⋮
@@ -340,26 +339,26 @@ class FishBoneNet:
         v_index = self._ebL[n]
         if n == -1 and 0 <= i <= max_index_main:
             # {Down part: vL i VD vR; Up part: VL' j vU' vR'}
-            Utheta = np.einsum('IJKL, aKcdeLgh->aIcdeJgh',
+            Utheta = einsum('IJKL, aKcdeLgh->aIcdeJgh',
                                self.U[i][-1], theta)
             # {i j [i*] [j*]} * {vL [i] vD vR, vL' [j] vD vR}
             # {i j   k   l}     {a   b  c  d ,  e  f  g  h}
             self.split_truncate_theta(Utheta, n, i, chi_max, eps)
         elif 0 <= n < self._nc and 0 <= i <= max_index_n:
             if i == e_index:
-                Utheta = np.einsum('IJKL, aKLfgh->aIJfgh', self.U[n][i], theta)
+                Utheta = einsum('IJKL, aKLfgh->aIJfgh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i]  [j] vU vD vR}
                 # {i j  k   l}      {a   b   e   f  g  h}
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
 
             elif i == v_index:
-                Utheta = np.einsum('IJKL, aKcdLh->aIcdJh', self.U[n][i], theta)
+                Utheta = einsum('IJKL, aKcdLh->aIcdJh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i] vU vD,  [j]  vR}
                 # {i j  k   l}      {a   b  c  d ,   e   h}
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
 
             elif 0 <= i <= max_index_n:
-                Utheta = np.einsum('IJKL,aKLh->aIJh', self.U[n][i], theta)
+                Utheta = einsum('IJKL,aKLh->aIJh', self.U[n][i], theta)
                 # {i j [i*] [j*]} * {vL [i], [j] vR}
                 # {I J  K   L}      {a   b,   e   h}
                 self.split_truncate_theta(Utheta, n, i, chi_max, eps)
@@ -493,10 +492,7 @@ def init(pd):
 # ]
 # @jitclass(spec)
 
-<<<<<<< HEAD
-=======
 
->>>>>>> a78592945898d8320b3e4f16185b85336f208bef
 class SpinBoson1D:
 
     def __init__(self, pd):
