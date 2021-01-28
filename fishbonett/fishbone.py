@@ -503,7 +503,7 @@ class SpinBoson1D:
                                    phys_right * chi_right_on_right])
         A, S, B = svd(theta, chi_max, full_matrices=False)
         chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
+        print("Error Is", np.sum(S > eps), chi_max, S[chivC:]@S[chivC:],  chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
