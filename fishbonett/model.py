@@ -4,10 +4,7 @@ from scipy.linalg import expm
 from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
-from numba import jit, complex64, float64
 
-
-@jit
 def _c(dim: int):
     """
     Creates the annihilation operator.
