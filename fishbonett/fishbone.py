@@ -7,7 +7,7 @@ from sklearn.utils.extmath import randomized_svd as rsvd
 from opt_einsum import contract as einsum
 
 def svd(A, b, full_matrices=False):
-    if A.shape[0] >= 400:
+    if A.shape[0] >= 0:
         return csvd(A,full_matrices=False)
     else:
         return rsvd(A,b,n_oversamples=100)
@@ -39,10 +39,6 @@ class FishBoneNet:
         :param S:
         :type S:
         """
-        # self.e = ele_list
-        # self.v = vib_list
-        # self.eb = e_bath_list
-        # self.vb = v_bath_list
         (eb, e, v, vb) = B
         (eb_s, e_s, v_s, vb_s) = S
         try:
@@ -382,12 +378,6 @@ def init_ttn(nc, L, d1, de, dv):
     Fill all the relevant lists, including ttnS, ttnB, ttnH.
     :param de:
     :type de:
-    +
-    +
-    +
-    +
-    +
-    ++
     :param dv:
     :type dv:
     :param nc:
@@ -484,18 +474,6 @@ def init(pd):
         (eb_tensor, e_tensor, v_tensor, vb_tensor),
         (eb_s, e_s, v_s, vb_s_and_main_s)
     )
-
-# from numba.types import List, Array
-# from numba.experimental import jitclass
-# from numba import int8, float32, complex64
-# spec = [
-#     ('pd', int8[:]),
-#     ('pd_spin', int8[:]),
-#     ('B', List(Array(float32, 2, 'C'))),
-#     ('S', List(Array(float32, 1, 'C'))),
-#     ('U', List(Array(complex64, 2, 'C')))
-# ]
-# @jitclass(spec)
 
 
 class SpinBoson1D:

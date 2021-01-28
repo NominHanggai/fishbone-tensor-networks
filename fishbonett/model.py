@@ -192,11 +192,11 @@ class FishBoneH:
         # initialize spectral densities.
         for n in range(self._nc):
             if self._ebL[n] > 0:
-                self.sd[n, 0] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
+                self.sd[n, 0] = lambda x: 0  # np.heaviside(x, 1) / 1. * exp(-x / 1)
             elif self._ebL[n] == 0:
                 self.sd[n, 0] = None
             if self._vbL[n] > 0:
-                self.sd[n, 1] = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
+                self.sd[n, 1] = lambda x: 0  #np.heaviside(x, 1) / 1. * exp(-x / 1)
             elif self._vbL[n] == 0:
                 self.sd[n, 1] = None
             else:
@@ -336,11 +336,19 @@ class FishBoneH:
             if kL != [] and pd_vb != []:
                 k0, kn = kL[0], kL[1:]
                 c0 = _c(pd_vb[0])
-                pd_v = self._pd[n, 2][0]  # pd_v is a number
+                pd_e = self._pd[n, 1][0]
+
+                if self._pd[n, 2] != []:
+                    # This condition statement is related to the third
+                    # condition statement below. Please also see it.
+                    # This statement overlaps the
+                    pd_v = self._pd[n, 2][0]  # pd_v is a number
+                else:
+                    pd_v = pd_e
                 pd_vb1 = h1vb[0].shape[0]
                 assert pd_vb1 == pd_vb[0]
-                h2vb0 = k0 * np.kron(self.hv_dy[n], c0 + c0.T) + \
-                        kron(self.h1v[n], eye(pd_vb1))
+                h2vb0 = k0 * np.kron(self._hv_dy[n], c0 + c0.T) + \
+                        kron(self._h1v[n], eye(pd_vb1))
                 h2vb = [(h2vb0, pd_v, pd_vb1)]
                 for i, k in enumerate(kn):
                     r0, r1 = pd_vb[i], pd_vb[i + 1]
@@ -367,76 +375,22 @@ class FishBoneH:
                 r1 = self._vD[n][0]
                 h2_ev = h2_ev + kron(self._h1e[n], eye(r1)) + kron(eye(r0), self._h1v[n])
                 h2ev.append((h2_ev, r0, r1))
+            if self._vbD[n] != [] and self._vD[n] == []:
+                # A special case, where the v site is overlapped with the e site.
+                # b-b-b--E(V)-b-b-b-b
+                # In this case, the dynamical operator of V becomes the second dynamical
+                # operator of E. This second dynamical operator of the E site serves as
+                # the operator belonging to the E site that couples with the right-hand-side bath.
+                # One need set the 1-site Hamiltonian h1v identical to h1e.
+                return h2eb + h2ev + h2vb
             elif h2eb != []:
-                h2_ev = h2eb[-1][0] + kron(eye(self._ebD[n][-1]), self._h1e[n])
+                h2_eb0 = h2eb[-1][0] + kron(eye(self._ebD[n][-1]), self._h1e[n])
                 he = self._h1e[n]
                 d_of_e = he.shape[0]
-                h2eb[-1] = (h2_ev, self._ebD[n][-1], d_of_e)
+                h2eb[-1] = (h2_eb0, self._ebD[n][-1], d_of_e)
             return h2eb + h2ev + h2vb
         else:
             raise ValueError
-
-    def get_h2(self, n):
-        if n == -1 and self._nc > 1:
-            h2_ee = self.h2ee
-            return h2_ee
-
-        if 0 <= n <= self._nc - 1:
-            # Start to generate ev Hamiltonian lists
-            pd_eb = self._pd[n, 0]  # pd_eb is a list
-            kL = self.k_list[n][0][::-1]
-            # kL is a list of k's (coupling constants). Index 0 indicates eb
-            if kL != [] and pd_eb != []:
-                k0, kn = kL[-1], kL[0:-1]
-                h2eb = []
-                for i, k in enumerate(kn):
-                    r0, r1 = pd_eb[i], pd_eb[i + 1]
-                    c1 = _c(r0);
-                    c2 = _c(r1)
-                    h2 = k * (kron(c1.T, c2) + kron(c1, c2.T))
-                    h2eb.append((h2, r0, r1))
-                # The following requires that we must have a e site.
-                c0 = _c(pd_eb[-1])
-                pd_e = self._pd[n, 1][0]  # pd_e is a number
-                # TODO: add an condition to determine if the dimensions match.
-                h2eb0 = k0 * np.kron((c0 + c0.T), self.he_dy[n])
-                h2eb.append((h2eb0, pd_eb[-1], pd_e))
-            else:
-                h2eb = []
-
-            pd_vb = self._pd[n, 3]  # 3 indicates the vb list
-            kL = self.k_list[n][1]
-            # kL is a list of k's (coupling constants) 0 indicates eb
-            if kL != [] and pd_vb != []:
-                k0, kn = kL[0], kL[1:]
-                c0 = _c(pd_vb[0])
-                pd_v = self._pd[n, 2][0]  # pd_v is a number
-                pd_vb1 = pd_vb[0]
-                h2vb0 = k0 * np.kron(self.hv_dy[n], c0 + c0.T)
-                h2vb = [(h2vb0, pd_v, pd_vb1)]
-                for i, k in enumerate(kn):
-                    r0, r1 = pd_vb[i], pd_vb[i + 1]
-                    c0 = _c(r0);
-                    c1 = _c(r1)
-                    h2 = k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
-                    # h2.shape is (m*n, m*n)
-                    h2vb.append((h2, r0, r1))
-            else:
-                h2vb = []
-
-            h2ev = []
-            if self._vbD[n] != [] and self._vD[n] != []:
-                h2_ev = self._h2ev[n]
-                r0 = self._eD[n][0]
-                r1 = self._vD[n][0]
-                h2ev.append((h2_ev, r0, r1))
-            elif self._vbD[n] == [] and self._vD[n] != []:
-                h2_ev = self.h2ev[n]
-                r0 = self._eD[n][0]
-                r1 = self._vD[n][0]
-                h2_ev = h2_ev
-                h2ev.append((h2_ev, r0, r1))
-            return h2eb + h2ev + h2vb
 
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
@@ -467,7 +421,7 @@ class FishBoneH:
         return U
 
 
-class SpinBoson():
+class SpinBoson:
 
     def __init__(self, pd):
         self.pd_spin = pd[-1]
