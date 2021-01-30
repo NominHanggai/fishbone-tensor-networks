@@ -6,25 +6,29 @@ from copy import deepcopy as dcopy
 from sklearn.utils.extmath import randomized_svd as rsvd
 from opt_einsum import contract as einsum
 
+
 def svd(A, b, full_matrices=False):
-    if A.shape[0] >= 0:
-        return csvd(A,full_matrices=False)
+    dim = min(A.shape[0], A.shape[1])
+    if b >= 0:
+        print("CSVD", A.shape, b)
+        return csvd(A, full_matrices=False)
     else:
-        return rsvd(A,b,n_oversamples=100)
+        print("RRSVD", A.shape, b)
+        return rsvd(A, b, n_oversamples=b, n_iter=4)
+
 
 class FishBoneNet:
     """ Simple Tree Like Tensor-Product States
                          ⋮
-        --d33--d32--d31--E3--V3--b31--b32--b33--  3
+        --d33--d32--d31--E3--V3--b31--b32--b33--  0
                          |
-        --d23--d22--d21--E2--V2--b21--b22--b23--  2
+        --d23--d22--d21--E2--V2--b21--b22--b23--  1
                          |
-        --d13--d12--d11--E1--V1--b11--b12--b13--  1
+        --d13--d12--d11--E1--V1--b11--b12--b13--  2
                          |
-        --d03--d02--d01--E0--V0--b01--b02--b03--  0
+        --d03--d02--d01--E0--V0--b01--b02--b03--  3
                          ⋮
                         -1
-    Let's look at what's already in the diagram and ignore the ellipsis.
     Bond d03--d02 will be the bond 0 on the chain 0.
     Bond d12--d11 will be the bond 1 on the china 1.
     Bond E0-E1 will be the bond 0 on the chain -1.
@@ -33,7 +37,6 @@ class FishBoneNet:
 
     def __init__(self, B, S):
         """
-
         :param B:
         :type B:
         :param S:
@@ -131,7 +134,7 @@ class FishBoneNet:
 
         if n == -1 and 0 <= i <= max_index_main:
             theta_lower = self.get_theta1(i + 1, self._ebL[i + 1])
-            s_inverse_middle = np.diag(self.ttnS[i+1][-1] ** (-1))
+            s_inverse_middle = np.diag(self.ttnS[i + 1][-1] ** (-1))
             lower_gamma_down_canonical = np.tensordot(
                 theta_lower,
                 s_inverse_middle,
@@ -192,14 +195,14 @@ class FishBoneNet:
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(
                 theta, chi_max, full_matrices=False)
             chivC = min(chi_max, np.sum(S > eps))
-            print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
+            print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
             # keep the largest `chivC` singular values
             piv = np.argsort(S)[::-1][:chivC]
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = (
                 higher_gamma_up_canonical[:, piv], S[piv],
                 lower_gamma_down_canonical[piv, :])
             S = S / np.linalg.norm(S)
-            self.ttnS[i+1][-1] = S
+            self.ttnS[i + 1][-1] = S
             # gamma: vL*i*vU*vR*chivC -> vL i vU vR vU=chivC
             higher_gamma_up_canonical = np.reshape(higher_gamma_up_canonical, [
                 chi_left_higher, phys_higher, chi_up_higher,
@@ -223,7 +226,7 @@ class FishBoneNet:
             lower_gamma_down_canonical = np.reshape(
                 lower_gamma_down_canonical,
                 [chivC, chi_left_lower, phys_lower,
-                    chi_down_lower, chi_right_lower]
+                 chi_down_lower, chi_right_lower]
             )  # gamma: chivC*vL*j*vD*vR -> vD==chivC vL i vD vR
             # vU vL i vD vR -> vL i vU vD vR
             lower_gamma_down_canonical = np.transpose(
@@ -239,7 +242,7 @@ class FishBoneNet:
                 np.diag(self.ttnS[i + 1][self._ebL[i + 1]] ** -1), lower_theta,
                 [1, 0]
             )  # vL [vL'], [vL'] i vU vD vR -> vL i vU vD vR
-            self.ttnB[i + 1][self._ebL[i+1]] = gamma_lower_right_canonical
+            self.ttnB[i + 1][self._ebL[i + 1]] = gamma_lower_right_canonical
 
         elif 0 <= n < self._nc and i >= 0:
             if i == self._ebL[n] - 1:
@@ -251,7 +254,7 @@ class FishBoneNet:
                     chi_down_on_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -276,7 +279,7 @@ class FishBoneNet:
                             phys_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -302,7 +305,7 @@ class FishBoneNet:
                                            phys_right * chi_right_on_right])
                 A, S, B = svd(theta, chi_max, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]),  chivC)
+                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -341,7 +344,7 @@ class FishBoneNet:
         if n == -1 and 0 <= i <= max_index_main:
             # {Down part: vL i VD vR; Up part: VL' j vU' vR'}
             Utheta = einsum('IJKL, aKcdeLgh->aIcdeJgh',
-                               self.U[i][-1], theta)
+                            self.U[i][-1], theta)
             # {i j [i*] [j*]} * {vL [i] vD vR, vL' [j] vD vR}
             # {i j   k   l}     {a   b  c  d ,  e  f  g  h}
             self.split_truncate_theta(Utheta, n, i, chi_max, eps)
@@ -422,7 +425,7 @@ def init_ttn(nc, L, d1, de, dv):
 
     vb_s = np.ones([1], np.float)
     # L+1 is because we will store the main-bone S in s[n][-1].
-    vb_ss = [vb_s.copy() for i in range(L+1)]
+    vb_ss = [vb_s.copy() for i in range(L + 1)]
     vb_sss = [dcopy(vb_ss) for i in range(nc)]
     return FishBoneNet(
         (ebss, ess, vss, vbss),
@@ -433,8 +436,9 @@ def init_ttn(nc, L, d1, de, dv):
 def init(pd):
     def g_state(dim):
         tensor = np.zeros(dim)
-        tensor[(0,)*len(dim)] = 1.
+        tensor[(0,) * len(dim)] = 1.
         return tensor
+
     nc = len(pd)
     length_chain = [len(sum(chain_n, [])) for chain_n in pd]
     eb_tensor = [
@@ -468,8 +472,8 @@ def init(pd):
     main_s = [[np.ones([1], np.float)] for chain_n in vb_tensor]
     vb_s_and_main_s = [vb_s[i] + vb_tensor[i] for i in range(nc)]
     # eb_tensor[0][0][0,0,0] = 1.
-    e_tensor[0][0][0, 0, 0, 0, 0] = 1/np.sqrt(2)
-    e_tensor[0][0][0, 1, 0, 0, 0] = 1/np.sqrt(2)
+    e_tensor[0][0][0, 0, 0, 0, 0] = 1 / np.sqrt(2)
+    e_tensor[0][0][0, 1, 0, 0, 0] = 1 / np.sqrt(2)
     return FishBoneNet(
         (eb_tensor, e_tensor, v_tensor, vb_tensor),
         (eb_s, e_s, v_s, vb_s_and_main_s)
@@ -481,8 +485,9 @@ class SpinBoson1D:
     def __init__(self, pd):
         def g_state(dim: int):
             tensor = np.zeros(dim)
-            tensor[(0,)*len(dim)] = 1.
+            tensor[(0,) * len(dim)] = 1.
             return tensor
+
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1, d, 1]) for d in pd]
@@ -503,7 +508,7 @@ class SpinBoson1D:
                                    phys_right * chi_right_on_right])
         A, S, B = svd(theta, chi_max, full_matrices=False)
         chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_max, S[chivC:]@S[chivC:],  chivC)
+        print("Error Is", np.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -516,9 +521,9 @@ class SpinBoson1D:
         A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])
         # vL i [vR] * [vR] vR -> vL i vR
         A = np.tensordot(A, np.diag(S), [2, 0])
-        self.S[i+1] = S
+        self.S[i + 1] = S
         self.B[i] = A
-        self.B[i+1] = B
+        self.B[i + 1] = B
 
     def update_bond(self, i: int, chi_max: int, eps: float):
         theta = self.get_theta2(i)
