@@ -4,18 +4,26 @@ from scipy.linalg import expm
 from scipy.linalg import svd as csvd
 from scipy.sparse.linalg import svds as sparsesvd
 from copy import deepcopy as dcopy
-from sklearn.utils.extmath import randomized_svd as rsvd
+from fbpca import pca as rsvd
+from fbpca import diffsnorm
 from opt_einsum import contract as einsum
 
 
 def svd(A, b, full_matrices=False):
     dim = min(A.shape[0], A.shape[1])
+    b = min(b, dim)
     if b >= 0:
-        print("CSVD", A.shape, b)
-        return csvd(A, full_matrices=False)
-    else:
+        # print("CSVD", A.shape, b)
+        # cs = csvd(A, full_matrices=False)
         print("RRSVD", A.shape, b)
-        return rsvd(A, b, n_oversamples=b, n_iter=4)
+        rs = rsvd(A, b, True, n_iter=2, l=2 * b)
+        #print("Difference", diffsnorm(A, *B))
+        # print(cs[1] - rs[1])
+        return rs
+    else:
+        return csvd(A, full_matrices=False)
+
+
 
 
 class FishBoneNet:

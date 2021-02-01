@@ -58,7 +58,7 @@ def calc_U(H, dt):
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
     H_sparse = csc_matrix(H)
-    u = sparseExpm(-dt * 1j * H_sparse )
+    u = sparseExpm(-dt * 1j * H_sparse)
     return sparse.COO.from_scipy_sparse(u)
 
 
@@ -502,7 +502,9 @@ class SpinBoson:
 
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
+        print("Coupling Over")
         hee = self.get_h2()
+        print("Hamiltonian Over")
         self.H = hee
 
     def get_u(self, dt):
@@ -514,6 +516,7 @@ class SpinBoson:
             s0 = s1 = d2  # physical dimension for site B
             u = u.reshape([r0, s0, r1, s1])
             U[i] = u
+            print("Exponential", i, r0*s0, r1*s1)
         return U
 
 
