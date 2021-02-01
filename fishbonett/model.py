@@ -1,10 +1,13 @@
 import numpy as np
 import sys
 from scipy.linalg import expm
+from scipy.sparse.linalg import expm as sparseExpm
+from scipy.sparse import csc_matrix
+import scipy
 from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
-
+import sparse
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -54,8 +57,9 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    u = expm(-dt * 1j * H)
-    return u
+    H_sparse = csc_matrix(H)
+    u = sparseExpm(-dt * 1j * H_sparse )
+    return sparse.COO.from_scipy_sparse(u)
 
 
 def _to_list(x):

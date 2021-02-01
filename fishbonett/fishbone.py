@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from scipy.linalg import expm
 from scipy.linalg import svd as csvd
+from scipy.sparse.linalg import svds as sparsesvd
 from copy import deepcopy as dcopy
 from sklearn.utils.extmath import randomized_svd as rsvd
 from opt_einsum import contract as einsum
