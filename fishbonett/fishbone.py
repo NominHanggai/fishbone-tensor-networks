@@ -105,7 +105,7 @@ class FishBoneNet:
         #     elif self._evL[n] == 1:
         #         H_eb, H_ev = H[n]
         #         self.ttnH.append(H_ev + H_ev)
-
+        self.pre_factor = 1.2
     def get_theta1(self, n: int, i: int):
         """Calculate effective single-site wave function on sites i in B
         canonical form.
@@ -201,10 +201,16 @@ class FishBoneNet:
                                        chi_up_higher * chi_right_higher,
                                        chi_left_lower * phys_lower *
                                        chi_down_lower * chi_right_lower])
+            chi_try = int(self.pre_factor * len(self.ttnS[i + 1][-1])) + 10
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(
-                theta, chi_max, full_matrices=False)
-            chivC = min(chi_max, np.sum(S > eps))
-            print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
+                theta, chi_try, full_matrices=False)
+            chivC = min(chi_max, np.sum(S > eps), chi_try)
+            while chivC == chi_try and chi_try < min(*theta.shape):
+                print(f"Expanding chi_try by{self.pre_factor}")
+                chi_try = int(round(self.pre_factor * chi_try))
+                A, S, B = svd(theta, chi_try, full_matrices=False)
+                chivC = min(chi_max, np.sum(S > eps), chi_try)
+            print("Error Is", np.sum(S > eps), chi_try, S[chivC:]@S[chivC:], chivC)
             # keep the largest `chivC` singular values
             piv = np.argsort(S)[::-1][:chivC]
             higher_gamma_up_canonical, S, lower_gamma_down_canonical = (
@@ -261,9 +267,15 @@ class FishBoneNet:
                     chi_left_on_left * phys_left,
                     phys_right * chi_up_on_right *
                     chi_down_on_right * chi_right_on_right])
-                A, S, B = svd(theta, chi_max, full_matrices=False)
-                chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
+                chi_try = int(self.pre_factor * len(self.ttnS[n][i+1])) + 10
+                A, S, B = svd(theta, chi_try, full_matrices=False)
+                chivC = min(chi_max, np.sum(S > eps), chi_try)
+                while chivC == chi_try:
+                    print(f"Expanding chi_try by{self.pre_factor}")
+                    chi_try = int(round(self.pre_factor * chi_try))
+                    A, S, B = svd(theta, chi_try, full_matrices=False)
+                    chivC = min(chi_max, np.sum(S > eps), chi_try)
+                print("Error Is", np.sum(S > eps), chi_try, S[chivC:]@S[chivC:], chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -286,9 +298,15 @@ class FishBoneNet:
                 theta = np.reshape(
                     theta, [chi_left_on_left * phys_left * chiU_l * chiD_l,
                             phys_right * chi_right_on_right])
-                A, S, B = svd(theta, chi_max, full_matrices=False)
-                chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
+                chi_try = int(self.pre_factor * len(self.ttnS[n][i+1])) + 10
+                A, S, B = svd(theta, chi_try, full_matrices=False)
+                chivC = min(chi_max, np.sum(S > eps), chi_try)
+                while chivC == chi_try:
+                    print(f"Expanding chi_try by{self.pre_factor}")
+                    chi_try = int(round(self.pre_factor * chi_try))
+                    A, S, B = svd(theta, chi_try, full_matrices=False)
+                    chivC = min(chi_max, np.sum(S > eps), chi_try)
+                print("Error Is", np.sum(S > eps), chi_try, S[chivC:]@S[chivC:], chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -312,9 +330,15 @@ class FishBoneNet:
                  phys_right, chi_right_on_right) = theta.shape
                 theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                            phys_right * chi_right_on_right])
-                A, S, B = svd(theta, chi_max, full_matrices=False)
-                chivC = min(chi_max, np.sum(S > eps))
-                print("Error Is", np.sum(S > eps), chi_max, sum(S[chivC:]), chivC)
+                chi_try = int(self.pre_factor * len(self.ttnS[n][i+1])) + 10
+                A, S, B = svd(theta, chi_try, full_matrices=False)
+                chivC = min(chi_max, np.sum(S > eps), chi_try)
+                while chivC == chi_try:
+                    print(f"Expanding chi_try by{self.pre_factor}")
+                    chi_try = int(round(self.pre_factor * chi_try))
+                    A, S, B = svd(theta, chi_try, full_matrices=False)
+                    chivC = min(chi_max, np.sum(S > eps), chi_try)
+                print("Error Is", np.sum(S > eps), chi_try, S[chivC:]@S[chivC:], chivC)
                 # keep the largest `chivC` singular values
                 piv = np.argsort(S)[::-1][:chivC]
                 A, S, B = A[:, piv], S[piv], B[piv, :]
