@@ -8,6 +8,7 @@ from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 import sparse
+from scipy.sparse import kron as skron
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -42,13 +43,13 @@ def kron(a, b):
     if a is None or b is None:
         return None
     if type(a) is list and type(b) is list:
-        return np.kron(*a, *b)
+        return skron(*a, *b, format='csc')
     if type(a) is list and type(b) is not list:
-        return np.kron(*a, b)
+        return skron(*a, b, format='csc')
     if type(a) is not list and type(b) is list:
-        return np.kron(a, *b)
+        return skron(a, *b, format='csc')
     else:
-        return np.kron(a, b)
+        return skron(a, b, format='csc')
 
 
 def calc_U(H, dt):
@@ -326,7 +327,7 @@ class FishBoneH:
                 c0 = _c(pd_eb[-1])
                 pd_e = self._pd[n, 1][0]  # pd_e is a number
                 # TODO: add an condition to determine if the dimensions match.
-                h2eb0 = np.kron(h1eb[-1], np.eye(pd_e)) + k0 * np.kron((c0 + c0.T), self.he_dy[n])
+                h2eb0 = kron(h1eb[-1], np.eye(pd_e)) + k0 * kron((c0 + c0.T), self.he_dy[n])
                 h2eb.append((h2eb0, pd_eb[-1], pd_e))
             else:
                 h2eb = []
@@ -356,7 +357,7 @@ class FishBoneH:
                     c0 = _c(r0);
                     c1 = _c(r1)
                     h_site1 = kron(h1vb[i], eye(r1))
-                    h_coup = k * (np.kron(c0.T, c1) + np.kron(c0, c1.T))
+                    h_coup = k * (kron(c0.T, c1) + kron(c0, c1.T))
                     h2 = h_site1 + h_coup
                     # h2.shape is (m*n, m*n)
                     h2vb.append((h2, r0, r1))
@@ -419,6 +420,7 @@ class FishBoneH:
                 s0 = s1 = self.H[i][j][2]  # physical dimension for site B
                 u = u.reshape([r0, s0, r1, s1])
                 U[i][j] = u
+                print("Exponential", i, j, r0 * s0, r1 * s1)
         return U
 
 
@@ -468,14 +470,14 @@ class SpinBoson:
             d2 = self.pd_boson[i + 1]
             c1 = _c(d1)
             c2 = _c(d2)
-            coup = k * (np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            coup = k * (kron(c1.T, c2) + kron(c1, c2.T))
             site = np.kron(h1[i], np.eye(d2))
             h2.append((coup + site, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
-        coup = k0 * np.kron(c0 + c0.T, self.he_dy)
-        site = np.kron(h1[-2], np.eye(d2)) + np.kron(np.eye(d1), h1[-1])
+        coup = k0 * kron(c0 + c0.T, self.he_dy)
+        site = kron(h1[-2], np.eye(d2)) + kron(np.eye(d1), h1[-1])
         h20 = coup + site
         h2.append((h20, d1, d2))
         return h2
@@ -490,12 +492,12 @@ class SpinBoson:
             d2 = self.pd_boson[i + 1]
             c1 = _c(d1)
             c2 = _c(d2)
-            coup = k * (np.kron(c1.T, c2) + np.kron(c1, c2.T))
+            coup = k * (kron(c1.T, c2) + kron(c1, c2.T))
             h2.append(coup)
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         c0 = _c(d1)
-        coup = k0 * np.kron(c0 + c0.T, self.he_dy)
+        coup = k0 * kron(c0 + c0.T, self.he_dy)
         h20 = coup
         h2.append(h20)
         return h2
