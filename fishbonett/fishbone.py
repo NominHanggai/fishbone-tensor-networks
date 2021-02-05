@@ -5,7 +5,6 @@ from scipy.linalg import svd as csvd
 from scipy.sparse.linalg import svds as sparsesvd
 from copy import deepcopy as dcopy
 from fbpca import pca as rsvd
-from fbpca import diffsnorm
 from opt_einsum import contract as einsum
 
 

@@ -59,8 +59,7 @@ def calc_U(H, dt):
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
     H_sparse = csc_matrix(H)
-    u = sparseExpm(-dt * 1j * H_sparse)
-    return sparse.COO.from_scipy_sparse(u)
+    return sparseExpm(-dt * 1j * H_sparse)
 
 
 def _to_list(x):
@@ -415,7 +414,7 @@ class FishBoneH:
         for i, r in enumerate(self.H):
             for j, s in enumerate(r):
                 h = self.H[i][j][0]
-                u = calc_U(h, dt)
+                u = calc_U(h, dt).toarray()
                 r0 = r1 = self.H[i][j][1]  # physical dimension for site A
                 s0 = s1 = self.H[i][j][2]  # physical dimension for site B
                 u = u.reshape([r0, s0, r1, s1])
