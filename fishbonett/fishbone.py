@@ -207,7 +207,7 @@ class FishBoneNet:
             while chivC == chi_try and chi_try < min(*theta.shape):
                 print(f"Expanding chi_try by{self.pre_factor}")
                 chi_try = int(round(self.pre_factor * chi_try))
-                A, S, B = svd(theta, chi_try, full_matrices=False)
+                higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(theta, chi_try, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps), chi_try)
             print("Error Is", np.sum(S > eps), chi_try, S[chivC:]@S[chivC:], chivC)
             # keep the largest `chivC` singular values
@@ -561,7 +561,8 @@ class SpinBoson1D:
         theta = self.get_theta2(i)
         U_bond = self.U[i]
         # i j [i*] [j*], vL [i] [j] vR
-        Utheta = np.tensordot(U_bond, theta, axes=([2, 3], [1, 2]))
+        Utheta = np.tensordot(U_bond, theta,
+                              axes=([2, 3], [1, 2]))
         Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
         self.split_truncate_theta(Utheta, i, chi_max, eps)
 

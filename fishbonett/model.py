@@ -7,7 +7,6 @@ import scipy
 from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
-import sparse
 from scipy.sparse import kron as skron
 def _c(dim: int):
     """
