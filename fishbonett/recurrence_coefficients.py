@@ -121,6 +121,15 @@ def recurrenceCoefficients(n, lb, rb, j, g, ncap=60000):
 
     return p.alpha, p.beta
 
+def recurrenceCoefficients(n, lb, rb, j, g, ncap=60000):
+    if n > ncap:
+        raise ValueError("n must be smaller than ncap.")
+
+    lb, rb, h_squared = _j_to_hsquared(func=j, lb=lb, rb=rb, g=g)
+
+    p = orth.OrthogonalPolynomial(n, left=lb, right=rb, wf=h_squared, ncap=ncap)
+
+    return p, p.alpha, p.beta
 
 def _j_to_hsquared(func, lb, rb, g):
     """

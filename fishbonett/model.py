@@ -8,6 +8,7 @@ from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
+
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -511,7 +512,7 @@ class SpinBoson:
         U = dcopy(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h, dt)
+            u = calc_U(h, dt).toarray()
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             u = u.reshape([r0, s0, r1, s1])
