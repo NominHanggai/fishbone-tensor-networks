@@ -10,6 +10,8 @@ import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
 import scipy.integrate as integrate
+import sympy
+from sympy.utilities.lambdify import lambdify
 
 def _c(dim: int):
     """
@@ -182,37 +184,26 @@ class SpinBoson:
         n = len(self.pd_boson)
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
-    def poly(self, n, x):
-        assert type(n) is int
+    def poly(self):
         k = self.k_list
         w = self.w_list
-        if n == -1:
-            return 0
-        if n == 0:
-            return 1 / k[0]
-        if n >= 1:
-            return (1 / k[n - 1] * x - w[n - 1] / k[n - 1]) * self.poly(n - 1, x) - k[n - 1] / k[n] * self.poly(n - 2, x)
+        pn_list = [0, 1/k[0]]
+        x = sympy.symbols("x")
+        for i in range(1, len(k)):
+            pi_1 = pn_list[i]
+            pi_2 = pn_list[i - 1]
+            pi = (1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2
+            pn_list.append(pi)
+        pn_list = pn_list[1:]
+        return [lambdify(x, pn) for pn in pn_list]
 
-    def get_h1(self):
-        w_list = self.w_list[::-1]
-        h1 = []
-        for i, w in enumerate(w_list):
-            c = _c(self.pd_boson[i])
-            h1.append(w * c.T @ c)
-        h1.append(self.h1e)
-        return h1
 
     def get_h2(self, t):
         print("Geting h2")
         h_squared = self.h_squared
         pn_list = self.pn_list
-        print(pn_list)
-        p1 = pn_list[1]
-        print(p1(5))
         d_nt = []
         print("Geting d's")
-
-
         for p in pn_list:
             integrandReal = lambda x: h_squared(x) * p(x) * np.cos(x * t)
             print("Real Integrand")
@@ -224,28 +215,25 @@ class SpinBoson:
             d_nt.append(d_tReal+1j*d_tComp)
             print("Integration Over")
         d_nt = d_nt[::-1]
-        print("Integration Over")
-
         h2 = []
         for i, k in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
-            print(k,c1,k*c1.T)
             coup = kron(k*c1 + kc* c1.T, self.he_dy)
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         site = kron(np.eye(d1), self.h1e)
+        print(site.shape, h2[-1][0].shape)
         h2[-1] = (h2[-1][0] + site, d1, d2)
         return h2
 
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
         print("Coupling Over")
-        self.pn_list = list([lambda x: self.poly(n, x) for n in range(self.len_boson)])
-        print(self.pn_list)
+        self.pn_list = self.poly()
         # hee = self.get_h2(t)
         # print("Hamiltonian Over")
         # self.H = hee
