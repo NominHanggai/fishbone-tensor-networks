@@ -224,19 +224,21 @@ class SpinBoson:
         e = self.phase
         k0 = self.k_list[0]
         j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
-        phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        d_nt = [einsum('k,k,k', j0, coef[:,n], phase_factor) for n in range(len(freq))]
+        d_nt = j0
         # print(f'd_nt{d_nt}')
         d_nt = d_nt[::-1]
+        freq = freq[::-1]
         h2 = []
         for i, k in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
+            f = freq[i]
             coup = np.kron(k*c1 + kc* c1.T, self.he_dy)
-            h2.append((coup, d1, d2))
+            site = np.kron(f*c1.T@c1, np.eye(d2))
+            h2.append((delta*(coup+site), d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         site = delta*np.kron(np.eye(d1), self.h1e)
