@@ -226,7 +226,13 @@ class SpinBoson:
         j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
         phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        d_nt = [j0[n]* phase_factor[n] for n in range(len(freq))]
+        # Permutation
+        indexes = np.abs(freq).argsort()
+        freq = freq[indexes]
+        j0 = j0[indexes]
+        phase_factor = phase_factor[indexes]
+        # END Permutation
+        d_nt = [j0[n] * phase_factor[n] for n in range(len(freq))]
         # print(f'd_nt{d_nt}')
         d_nt = d_nt[::-1]
         h2 = []

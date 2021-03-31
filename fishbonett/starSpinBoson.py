@@ -225,8 +225,12 @@ class SpinBoson:
         k0 = self.k_list[0]
         j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
         print("Geting d's")
+        # Permutation
+        indexes = np.abs(freq).argsort()
+        freq = freq[indexes]
+        j0 = j0[indexes]
+        # END Permutation
         d_nt = j0
-        # print(f'd_nt{d_nt}')
         d_nt = d_nt[::-1]
         freq = freq[::-1]
         h2 = []
