@@ -512,10 +512,10 @@ class SpinBoson:
         U = dcopy(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h, dt).toarray()
+            u = calc_U(h, dt)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
-            u = u.reshape([r0, s0, r1, s1])
+            # u = u.reshape([r0, s0, r1, s1])
             U[i] = u
             print("Exponential", i, r0*s0, r1*s1)
         return U

@@ -522,6 +522,7 @@ class SpinBoson1D:
 
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
+        self.pd = pd
         self.B = [g_state([1, d, 1]) for d in pd]
         self.S = [np.ones([1], np.float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
@@ -559,7 +560,10 @@ class SpinBoson1D:
 
     def update_bond(self, i: int, chi_max: int, eps: float):
         theta = self.get_theta2(i)
-        U_bond = self.U[i]
+        d1 = self.pd[i]
+        d2 = self.pd[i+1]
+        U_bond = self.U[i].toarray()
+        U_bond = U_bond.reshape([d1, d2, d1, d2])
         # i j [i*] [j*], vL [i] [j] vR
         Utheta = np.tensordot(U_bond, theta,
                               axes=([2, 3], [1, 2]))
