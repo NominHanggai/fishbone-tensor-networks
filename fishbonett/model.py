@@ -348,7 +348,7 @@ class FishBoneH:
                     pd_v = pd_e
                 pd_vb1 = h1vb[0].shape[0]
                 assert pd_vb1 == pd_vb[0]
-                h2vb0 = k0 * np.kron(self._hv_dy[n], c0 + c0.T) + \
+                h2vb0 = k0 * kron(self._hv_dy[n], c0 + c0.T) + \
                         kron(self._h1v[n], eye(pd_vb1))
                 h2vb = [(h2vb0, pd_v, pd_vb1)]
                 for i, k in enumerate(kn):
@@ -470,7 +470,7 @@ class SpinBoson:
             c1 = _c(d1)
             c2 = _c(d2)
             coup = k * (kron(c1.T, c2) + kron(c1, c2.T))
-            site = np.kron(h1[i], np.eye(d2))
+            site = kron(h1[i], np.eye(d2))
             h2.append((coup + site, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
