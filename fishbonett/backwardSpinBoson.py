@@ -230,17 +230,21 @@ class SpinBoson:
         # print(f'd_nt{d_nt}')
         d_nt = d_nt[::-1]
         h2 = []
+        ul = calc_U(self.h1e, -t)
+        he_dy = ul @ self.he_dy @ (ul.T.conj())
+
         for i, k in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
-            coup = np.kron(k*c1 + kc* c1.T, self.he_dy)
+            coup = np.kron(k*c1 + kc* c1.T, he_dy)
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*np.kron(np.eye(d1), self.h1e)
-        h2[-1] = (h2[-1][0] + site, d1, d2)
+        # site = delta*np.kron(np.eye(d1), self.h1e)
+        # h2[-1] = (h2[-1][0] + site, d1, d2)
+        h2[-1] = (h2[-1][0], d1, d2)
         return h2
 
     def build(self, g, ncap=20000):
@@ -253,8 +257,7 @@ class SpinBoson:
         # self.H = hee
 
     def get_u(self, t, dt, mode='normal'):
-        hee = self.get_h2(t, dt)
-        self.H = hee
+        self.H = self.get_h2(t, dt)
         U1 = dcopy(self.H)
         U2 = dcopy(self.H)
         for i, h_d1_d2 in enumerate(self.H):
