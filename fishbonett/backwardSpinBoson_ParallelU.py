@@ -14,6 +14,7 @@ import scipy.integrate as integrate
 import sympy
 import scipy
 from sympy.utilities.lambdify import lambdify
+from multiprocessing import Pool
 
 def _c(dim: int):
     """
@@ -180,7 +181,7 @@ class SpinBoson:
         self.coef= []
         self.freq = []
         self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
-        # self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
+        self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
 
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -258,14 +259,13 @@ class SpinBoson:
 
     def get_u(self, t, dt, mode='normal'):
         self.H = self.get_h2(t, dt)
-        U1 = dcopy(self.H)
+        U1 = [np.empty([0,0])]*len(self.H)
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray(), 1)
+            u = calc_U(h, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
-            # print(u)
             u1 = u.reshape([r0, s0, r1, s1])
             u2 = np.transpose(u1, [1,0,3,2])
             U1[i] = u1
