@@ -627,7 +627,7 @@ class SpinBoson1D:
             Utheta = cp.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
             Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
-            self.split_truncate_theta(Utheta, i, chi_max, eps)
+            self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
 
 
 if __name__ == "__main__":
