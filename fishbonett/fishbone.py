@@ -531,9 +531,7 @@ try:
 except ImportError:
     print("CuPy is not imported. Will use CPUs")
     CUPY_SUCCESS = False
-# else:
-#     print("CuPy is not imported. Will use CPUs")
-#     CUPY_SUCCESS = False
+
 
 class SpinBoson1D:
 
@@ -557,7 +555,7 @@ class SpinBoson1D:
         j = (i + 1)
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False):
+    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False, free_mem=False):
         if gpu is False or CUPY_SUCCESS is False:
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
@@ -606,10 +604,10 @@ class SpinBoson1D:
             self.B[i] = A.get()
             self.B[i + 1] = B.get()
             del S, A, B, theta
-            mempool.free_all_blocks()
+            if free_mem:
+                mempool.free_all_blocks()
 
-
-    def update_bond(self, i: int, chi_max: int, eps: float, gpu=False):
+    def update_bond(self, i: int, chi_max: int, eps: float, gpu=False, free_mem=False):
         if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
             d1 = self.pd[i]
@@ -633,7 +631,8 @@ class SpinBoson1D:
             Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
             self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
             del theta, U_bond, Utheta
-            mempool.free_all_blocks()
+            if free_mem:
+                mempool.free_all_blocks()
 
 
 if __name__ == "__main__":
