@@ -511,6 +511,28 @@ def init(pd):
         (eb_s, e_s, v_s, vb_s_and_main_s)
     )
 
+try:
+    import cupy as cp
+    CUPY_SUCCESS = True
+    import rsvd_cupy.rsvd as cursvd
+
+    def cusvd(A, b, full_matrices=False):
+        dim = min(A.shape[0], A.shape[1])
+        b = min(b, dim)
+        # print("CSVD", A.shape, b)
+        # cs = csvd(A, full_matrices=False)
+        print("RRSVD", A.shape, b)
+        rs = cursvd(A, b, True, n_iter=2, l=2 * b)
+        # print("Difference", diffsnorm(A, *B))
+        # print(cs[1] - rs[1])
+        return rs
+
+except ImportError:
+    print("CuPy is not imported. Will use CPUs")
+    CUPY_SUCCESS = False
+else:
+    print("CuPy is not imported. Will use CPUs")
+    CUPY_SUCCESS = False
 
 class SpinBoson1D:
 
@@ -534,41 +556,78 @@ class SpinBoson1D:
         j = (i + 1)
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float):
-        (chi_left_on_left, phys_left,
-         phys_right, chi_right_on_right) = theta.shape
-        theta = np.reshape(theta, [chi_left_on_left * phys_left,
-                                   phys_right * chi_right_on_right])
-        A, S, B = svd(theta, chi_max, full_matrices=False)
-        chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
-        # keep the largest `chivC` singular values
-        piv = np.argsort(S)[::-1][:chivC]
-        A, S, B = A[:, piv], S[piv], B[piv, :]
-        S = S / np.linalg.norm(S)
-        # A: {vL*i, chivC} -> vL i vR=chivC
-        A = np.reshape(A, [chi_left_on_left, phys_left, chivC])
-        # B: {chivC, j*vR} -> vL==chivC j vR
-        B = np.reshape(B, [chivC, phys_right, chi_right_on_right])
-        # vL [vL'] * [vL] i vR -> vL i vR
-        A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])
-        # vL i [vR] * [vR] vR -> vL i vR
-        A = np.tensordot(A, np.diag(S), [2, 0])
-        self.S[i + 1] = S
-        self.B[i] = A
-        self.B[i + 1] = B
+    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False):
+        if gpu is False or CUPY_SUCCESS is False:
+            (chi_left_on_left, phys_left,
+             phys_right, chi_right_on_right) = theta.shape
+            theta = np.reshape(theta, [chi_left_on_left * phys_left,
+                                       phys_right * chi_right_on_right])
+            A, S, B = svd(theta, chi_max, full_matrices=False)
+            chivC = min(chi_max, np.sum(S > eps))
+            print("Error Is", np.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
+            # keep the largest `chivC` singular values
+            piv = np.argsort(S)[::-1][:chivC]
+            A, S, B = A[:, piv], S[piv], B[piv, :]
+            S = S / np.linalg.norm(S)
+            # A: {vL*i, chivC} -> vL i vR=chivC
+            A = np.reshape(A, [chi_left_on_left, phys_left, chivC])
+            # B: {chivC, j*vR} -> vL==chivC j vR
+            B = np.reshape(B, [chivC, phys_right, chi_right_on_right])
+            # vL [vL'] * [vL] i vR -> vL i vR
+            A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])
+            # vL i [vR] * [vR] vR -> vL i vR
+            A = np.tensordot(A, np.diag(S), [2, 0])
+            self.S[i + 1] = S
+            self.B[i] = A
+            self.B[i + 1] = B
+        elif gpu is True and CUPY_SUCCESS is True:
+            (chi_left_on_left, phys_left,
+             phys_right, chi_right_on_right) = theta.shape
+            theta = cp.reshape(theta, [chi_left_on_left * phys_left,
+                                       phys_right * chi_right_on_right])
+            A, S, B = cusvd(theta, chi_max, full_matrices=False)
+            chivC = min(chi_max, cp.sum(S > eps))
+            print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
+            # keep the largest `chivC` singular values
+            piv = cp.argsort(S)[::-1][:chivC]
+            A, S, B = A[:, piv], S[piv], B[piv, :]
+            S = S / cp.linalg.norm(S)
+            # A: {vL*i, chivC} -> vL i vR=chivC
+            A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
+            # B: {chivC, j*vR} -> vL==chivC j vR
+            B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
+            # vL [vL'] * [vL] i vR -> vL i vR
+            A = cp.tensordot(cp.diag(self.S[i] ** (-1)), A, [1, 0])
+            # vL i [vR] * [vR] vR -> vL i vR
+            A = cp.tensordot(A, np.diag(S), [2, 0])
+            self.S[i + 1] = S.get()
+            self.B[i] = A.get()
+            self.B[i + 1] = B.get()
 
-    def update_bond(self, i: int, chi_max: int, eps: float):
-        theta = self.get_theta2(i)
-        d1 = self.pd[i]
-        d2 = self.pd[i+1]
-        U_bond = self.U[i].toarray()
-        U_bond = U_bond.reshape([d1, d2, d1, d2])
-        # i j [i*] [j*], vL [i] [j] vR
-        Utheta = np.tensordot(U_bond, theta,
-                              axes=([2, 3], [1, 2]))
-        Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
-        self.split_truncate_theta(Utheta, i, chi_max, eps)
+
+    def update_bond(self, i: int, chi_max: int, eps: float, gpu=False):
+        if not gpu:
+            theta = self.get_theta2(i)
+            d1 = self.pd[i]
+            d2 = self.pd[i+1]
+            U_bond = self.U[i].toarray()
+            U_bond = U_bond.reshape([d1, d2, d1, d2])
+            # i j [i*] [j*], vL [i] [j] vR
+            Utheta = np.tensordot(U_bond, theta,
+                                  axes=([2, 3], [1, 2]))
+            Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
+            self.split_truncate_theta(Utheta, i, chi_max, eps)
+        else:
+            theta = cp.array(self.get_theta2(i))
+            d1 = self.pd[i]
+            d2 = self.pd[i + 1]
+            U_bond = cp.array(self.U[i].toarray())
+            U_bond = U_bond.reshape([d1, d2, d1, d2])
+            # i j [i*] [j*], vL [i] [j] vR
+            Utheta = cp.tensordot(U_bond, theta,
+                                  axes=([2, 3], [1, 2]))
+            Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
+            self.split_truncate_theta(Utheta, i, chi_max, eps)
 
 
 if __name__ == "__main__":
