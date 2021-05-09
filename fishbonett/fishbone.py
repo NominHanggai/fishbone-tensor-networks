@@ -514,8 +514,10 @@ def init(pd):
 try:
     import cupy as cp
     CUPY_SUCCESS = True
+    print("Success1")
     import rsvd_cupy.rsvd as cursvd
 
+    print("Success2")
     def cusvd(A, b, full_matrices=False):
         dim = min(A.shape[0], A.shape[1])
         b = min(b, dim)
@@ -527,6 +529,8 @@ try:
         # print(cs[1] - rs[1])
         return rs
 
+
+    print("Success3")
 except ImportError:
     print("CuPy is not imported. Will use CPUs")
     CUPY_SUCCESS = False
@@ -606,7 +610,7 @@ class SpinBoson1D:
 
 
     def update_bond(self, i: int, chi_max: int, eps: float, gpu=False):
-        if not gpu:
+        if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
             d1 = self.pd[i]
             d2 = self.pd[i+1]
