@@ -528,15 +528,13 @@ try:
         # print("Difference", diffsnorm(A, *B))
         # print(cs[1] - rs[1])
         return rs
-
-
     print("Success3")
 except ImportError:
     print("CuPy is not imported. Will use CPUs")
     CUPY_SUCCESS = False
-else:
-    print("CuPy is not imported. Will use CPUs")
-    CUPY_SUCCESS = False
+# else:
+#     print("CuPy is not imported. Will use CPUs")
+#     CUPY_SUCCESS = False
 
 class SpinBoson1D:
 
