@@ -32,7 +32,7 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
     if l >= m / 1.25 or l >= n / 1.25:
         print("Normal SVD")
         t0 = time()
-        (U, s, Va) = svd(A, full_matrices=False)
+        (U, s, Va) = cp.linalg.svd(A, full_matrices=False)
         t1 = time()
         print(f'true SVD. TIME {t1-t0}')
         #
