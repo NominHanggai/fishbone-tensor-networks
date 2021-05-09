@@ -583,6 +583,7 @@ class SpinBoson1D:
             self.B[i] = A
             self.B[i + 1] = B
         elif gpu is True and CUPY_SUCCESS is True:
+            print("GPU running")
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
