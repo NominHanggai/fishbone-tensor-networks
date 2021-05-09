@@ -514,10 +514,8 @@ def init(pd):
 try:
     import cupy as cp
     CUPY_SUCCESS = True
-    print("Success1")
     from fishbonett.rsvd_cupy import rsvd as cursvd
 
-    print("Success2")
     def cusvd(A, b, full_matrices=False):
         dim = min(A.shape[0], A.shape[1])
         b = min(b, dim)
@@ -528,7 +526,8 @@ try:
         # print("Difference", diffsnorm(A, *B))
         # print(cs[1] - rs[1])
         return rs
-    print("Success3")
+
+    mempool = cp.get_default_memory_pool()
 except ImportError:
     print("CuPy is not imported. Will use CPUs")
     CUPY_SUCCESS = False
@@ -606,6 +605,8 @@ class SpinBoson1D:
             self.S[i + 1] = S.get()
             self.B[i] = A.get()
             self.B[i + 1] = B.get()
+            del S, A, B, theta
+            mempool.free_all_blocks()
 
 
     def update_bond(self, i: int, chi_max: int, eps: float, gpu=False):
@@ -631,6 +632,8 @@ class SpinBoson1D:
                                   axes=([2, 3], [1, 2]))
             Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
             self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
+            del theta, U_bond, Utheta
+            mempool.free_all_blocks()
 
 
 if __name__ == "__main__":
