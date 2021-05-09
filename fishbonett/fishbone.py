@@ -595,13 +595,14 @@ class SpinBoson1D:
             A, S, B = A[:, piv], S[piv], B[piv, :]
             S = S / cp.linalg.norm(S)
             # A: {vL*i, chivC} -> vL i vR=chivC
+            print([chi_left_on_left, phys_left, chivC])
             A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
             # vL [vL'] * [vL] i vR -> vL i vR
             A = cp.tensordot(cp.diag(self.S[i] ** (-1)), A, [1, 0])
             # vL i [vR] * [vR] vR -> vL i vR
-            A = cp.tensordot(A, np.diag(S), [2, 0])
+            A = cp.tensordot(A, cp.diag(S), [2, 0])
             self.S[i + 1] = S.get()
             self.B[i] = A.get()
             self.B[i + 1] = B.get()
