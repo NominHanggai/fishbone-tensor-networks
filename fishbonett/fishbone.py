@@ -515,7 +515,7 @@ try:
     import cupy as cp
     CUPY_SUCCESS = True
     print("Success1")
-    import rsvd_cupy.rsvd as cursvd
+    from fishbonett.rsvd_cupy import rsvd as cursvd
 
     print("Success2")
     def cusvd(A, b, full_matrices=False):
