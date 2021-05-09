@@ -588,14 +588,13 @@ class SpinBoson1D:
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
             A, S, B = cusvd(theta, chi_max, full_matrices=False)
-            chivC = min(chi_max, cp.sum(S > eps))
+            chivC = min(chi_max, cp.sum(S > eps).item())
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
             piv = cp.argsort(S)[::-1][:chivC]
             A, S, B = A[:, piv], S[piv], B[piv, :]
             S = S / cp.linalg.norm(S)
             # A: {vL*i, chivC} -> vL i vR=chivC
-            print([chi_left_on_left, phys_left, chivC, chi_max, cp.sum(S > eps), min(chi_max, cp.sum(S > eps))])
             A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
