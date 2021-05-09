@@ -555,7 +555,7 @@ class SpinBoson1D:
         j = (i + 1)
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False, free_mem=False):
+    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False):
         if gpu is False or CUPY_SUCCESS is False:
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
@@ -586,6 +586,7 @@ class SpinBoson1D:
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
             A, S, B = cusvd(theta, chi_max, full_matrices=False)
+            del theta
             chivC = min(chi_max, cp.sum(S > eps).item())
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
@@ -601,11 +602,13 @@ class SpinBoson1D:
             # vL i [vR] * [vR] vR -> vL i vR
             A = cp.tensordot(A, cp.diag(S), [2, 0])
             self.S[i + 1] = S.get()
+            del S
             self.B[i] = A.get()
+            del A
             self.B[i + 1] = B.get()
-            del S, A, B, theta
-            if free_mem:
-                mempool.free_all_blocks()
+            del B
+        else:
+            print("Please Check")
 
     def update_bond(self, i: int, chi_max: int, eps: float, gpu=False, free_mem=False):
         if not gpu or CUPY_SUCCESS is False:
@@ -629,10 +632,14 @@ class SpinBoson1D:
             Utheta = cp.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
             Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
-            self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
-            del theta, U_bond, Utheta
             if free_mem:
+                self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True, free_mem=True)
+                del theta, U_bond, Utheta
                 mempool.free_all_blocks()
+            else:
+                self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True, free_mem=False)
+
+
 
 
 if __name__ == "__main__":
