@@ -595,7 +595,7 @@ class SpinBoson1D:
             A, S, B = A[:, piv], S[piv], B[piv, :]
             S = S / cp.linalg.norm(S)
             # A: {vL*i, chivC} -> vL i vR=chivC
-            print([chi_left_on_left, phys_left, chivC])
+            print([chi_left_on_left, phys_left, chivC, chi_max, cp.sum(S > eps), min(chi_max, cp.sum(S > eps))])
             A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
