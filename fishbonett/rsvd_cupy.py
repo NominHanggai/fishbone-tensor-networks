@@ -110,6 +110,7 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         t1 = time()
         print(f'rSVD. TIME {t1-t0}')
         U = Q.dot(R)
+        del Q, R
         mp.free_all_blocks()
  
         #
