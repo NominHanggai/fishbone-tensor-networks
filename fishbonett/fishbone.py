@@ -626,7 +626,7 @@ class SpinBoson1D:
             Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
             self.split_truncate_theta(Utheta, i, chi_max, eps)
         else:
-            theta = cp.array(self.get_theta2(i))
+            theta = self.get_theta2(i)
             d1 = self.pd[i]
             d2 = self.pd[i + 1]
             U_bond = self.U[i].toarray()
