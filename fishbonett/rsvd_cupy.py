@@ -5,6 +5,9 @@ from time import time
 from fbpca import pca
 import scipy as spy
 from time import time
+
+mp = cp.get_default_memory_pool()
+
 def mult(A, B):
     return A.dot(B)
 
@@ -26,6 +29,7 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
 
     # Promote the types of integer data to float data.
     dtype = (A * 1.0).dtype
+    mp.free_all_blocks()
     #
     # SVD A directly if l >= m/1.25 or l >= n/1.25.
     #
@@ -50,21 +54,25 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
             Q = cp.random.uniform(low=-1.0, high=1.0, size=(n, l)) \
                 .astype(dtype)
             Q = mult(A, Q)
+            mp.free_all_blocks()
         if not isreal:
             Q = cp.random.uniform(low=-1.0, high=1.0, size=(n, l)) \
                 .astype(dtype)
             Q += 1j * cp.random.uniform(low=-1.0, high=1.0, size=(n, l)) \
                 .astype(dtype)
+            mp.free_all_blocks()
             Q = mult(A, Q)
- 
+            mp.free_all_blocks()
         #
         # Form a matrix Q whose columns constitute a
         # well-conditioned basis for the columns of the earlier Q.
         #
         if n_iter == 0:
             (Q, _) = cp.linalg.qr(Q, mode='reduced')
+            mp.free_all_blocks()
         if n_iter > 0:
             (Q, _) = lu(Q, permute_l=True)
+            mp.free_all_blocks()
  
         #
         # Conduct normalized power iterations.
@@ -72,15 +80,20 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         for it in range(n_iter):
  
             Q = mult(Q.conj().T, A).conj().T
+            mp.free_all_blocks()
  
             (Q, _) = lu(Q, permute_l=True)
+            mp.free_all_blocks()
  
             Q = mult(A, Q)
+            mp.free_all_blocks()
  
             if it + 1 < n_iter:
                 (Q, _) = lu(Q, permute_l=True)
+                mp.free_all_blocks()
             else:
                 (Q, _) = cp.linalg.qr(Q, mode='reduced')
+                mp.free_all_blocks()
  
         #
         # SVD Q'*A to obtain approximations to the singular values
@@ -89,11 +102,15 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         # of A.
         #
         QA = mult(Q.conj().T, A)
+        del A
+        mp.free_all_blocks()
         t0 = time()
         (R, s, Va) = cp.linalg.svd(QA, full_matrices=False)
+        mp.free_all_blocks()
         t1 = time()
         print(f'rSVD. TIME {t1-t0}')
         U = Q.dot(R)
+        mp.free_all_blocks()
  
         #
         # Retain only the leftmost k columns of U, the uppermost
@@ -114,8 +131,11 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
                 .astype(dtype)
             R += 1j * cp.random.uniform(low=-1.0, high=1.0, size=(l, m)) \
                 .astype(dtype)
+
  
         Q = mult(R, A).conj().T
+        del R
+        mp.free_all_blocks()
  
         #
         # Form a matrix Q whose columns constitute a
@@ -123,8 +143,12 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         #
         if n_iter == 0:
             (Q, _) = cp.linalg.qr(Q, mode='reduced')
+            del _
+            mp.free_all_blocks()
         if n_iter > 0:
             (Q, _) = lu(Q, permute_l=True)
+            del _
+            mp.free_all_blocks()
  
         #
         # Conduct normalized power iterations.
@@ -132,14 +156,22 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         for it in range(n_iter):
  
             Q = mult(A, Q)
+            mp.free_all_blocks()
             (Q, _) = lu(Q, permute_l=True)
+            del _
+            mp.free_all_blocks()
  
             Q = mult(Q.conj().T, A).conj().T
- 
+            mp.free_all_blocks()
+
             if it + 1 < n_iter:
                 (Q, _) = lu(Q, permute_l=True)
+                del _
+                mp.free_all_blocks()
             else:
                 (Q, _) = cp.linalg.qr(Q, mode='reduced')
+                del _
+                mp.free_all_blocks()
  
         #
         # SVD A*Q to obtain approximations to the singular values
@@ -149,6 +181,8 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
         #
         t0 = time()
         (U, s, Ra) = cp.linalg.svd(mult(A, Q), full_matrices=False)
+        del A
+        mp.free_all_blocks()
         t1 = time()
         print(f'rSVD. TIME {t1-t0}')
         Va = Ra.dot(Q.conj().T)

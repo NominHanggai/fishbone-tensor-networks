@@ -585,8 +585,10 @@ class SpinBoson1D:
              phys_right, chi_right_on_right) = theta.shape
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
+            mempool.free_all_blocks()
             A, S, B = cusvd(theta, chi_max, full_matrices=False)
             del theta
+            mempool.free_all_blocks()
             chivC = min(chi_max, cp.sum(S > eps).item())
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
@@ -607,6 +609,7 @@ class SpinBoson1D:
             del A
             self.B[i + 1] = B.get()
             del B
+            mempool.free_all_blocks()
         else:
             print("Please Check")
 
@@ -629,17 +632,16 @@ class SpinBoson1D:
             U_bond = cp.array(self.U[i].toarray())
             U_bond = U_bond.reshape([d1, d2, d1, d2])
             # i j [i*] [j*], vL [i] [j] vR
+            del U_bond
+            mempool.free_all_blocks()
             Utheta = cp.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
+            del theta
+            mempool.free_all_blocks()
             Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
-            if free_mem:
-                self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True, free_mem=True)
-                del theta, U_bond, Utheta
-                mempool.free_all_blocks()
-            else:
-                self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True, free_mem=False)
-
-
+            self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
+            del Utheta
+            mempool.free_all_blocks()
 
 
 if __name__ == "__main__":
