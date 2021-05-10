@@ -638,6 +638,7 @@ class SpinBoson1D:
             # del theta, U_bond
             # mempool.free_all_blocks()
             Utheta = cp.transpose(cp.array(Utheta), [2, 0, 1, 3])  # vL i j vR
+            mempool.free_all_blocks()
             self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
             del Utheta
             mempool.free_all_blocks()
