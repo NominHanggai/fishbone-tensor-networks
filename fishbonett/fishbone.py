@@ -629,15 +629,15 @@ class SpinBoson1D:
             theta = cp.array(self.get_theta2(i))
             d1 = self.pd[i]
             d2 = self.pd[i + 1]
-            U_bond = cp.array(self.U[i].toarray())
+            U_bond = self.U[i].toarray()
             U_bond = U_bond.reshape([d1, d2, d1, d2])
             # i j [i*] [j*], vL [i] [j] vR
-            mempool.free_all_blocks()
-            Utheta = cp.tensordot(U_bond, theta,
+            # mempool.free_all_blocks()
+            Utheta = np.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
-            del theta, U_bond
-            mempool.free_all_blocks()
-            Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
+            # del theta, U_bond
+            # mempool.free_all_blocks()
+            Utheta = cp.transpose(cp.array(Utheta), [2, 0, 1, 3])  # vL i j vR
             self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
             del Utheta
             mempool.free_all_blocks()
