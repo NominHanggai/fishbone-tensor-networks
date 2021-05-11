@@ -580,28 +580,28 @@ class SpinBoson1D:
             self.B[i] = A
             self.B[i + 1] = B
         elif gpu is True and CUPY_SUCCESS is True:
-            print("1 USED", mempool.used_bytes())
-            print("1 TOTAl", mempool.total_bytes())
+            print("1 USED", mempool.used_bytes()*1e-6)
+            print("1 TOTAl", mempool.total_bytes()*1e-6)
             print("GPU running")
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
             theta = cp.array(theta)
-            print("2 USED", mempool.used_bytes())
-            print("2 TOTAl", mempool.total_bytes())
+            print("2 USED", mempool.used_bytes()*1e-6)
+            print("2 TOTAl", mempool.total_bytes()*1e-6)
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
-            print("3 USED", mempool.used_bytes())
-            print("3 TOTAl", mempool.total_bytes())
+            print("3 USED", mempool.used_bytes()*1e-6)
+            print("3 TOTAl", mempool.total_bytes()*1e-6)
             mempool.free_all_blocks()
-            print("4 USED", mempool.used_bytes())
-            print("4 TOTAl", mempool.total_bytes())
+            print("4 USED", mempool.used_bytes()*1e-6)
+            print("4 TOTAl", mempool.total_bytes()*1e-6)
             A, S, B = cusvd(theta, chi_max, full_matrices=False)
-            print("5 USED", mempool.used_bytes())
-            print("5 TOTAl", mempool.total_bytes())
+            print("5 USED", mempool.used_bytes()*1e-6)
+            print("5 TOTAl", mempool.total_bytes()*1e-6)
             del theta
             mempool.free_all_blocks()
-            print("6 USED", mempool.used_bytes())
-            print("6 TOTAl", mempool.total_bytes())
+            print("6 USED", mempool.used_bytes()*1e-6)
+            print("6 TOTAl", mempool.total_bytes()*1e-6)
             chivC = min(chi_max, cp.sum(S > eps).item())
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
