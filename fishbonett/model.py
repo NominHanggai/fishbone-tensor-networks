@@ -509,7 +509,7 @@ class SpinBoson:
         self.H = hee
 
     def get_u(self, dt):
-        U = dcopy(self.H)
+        U = [0]*len(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
             u = calc_U(h, dt)
@@ -520,6 +520,11 @@ class SpinBoson:
             print("Exponential", i, r0*s0, r1*s1)
         return U
 
+def exponential(h_d1_d2, dt):
+    h, d1, d2 = h_d1_d2
+    u = calc_U(h, dt)
+    # u = u.reshape([r0, s0, r1, s1])
+    return u
 
 if __name__ == "__main__":
     a = [3, 3, 3]

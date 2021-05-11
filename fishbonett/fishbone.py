@@ -583,6 +583,7 @@ class SpinBoson1D:
             print("GPU running")
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
+            theta = cp.array(theta)
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
             mempool.free_all_blocks()
@@ -626,21 +627,21 @@ class SpinBoson1D:
             Utheta = np.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
             self.split_truncate_theta(Utheta, i, chi_max, eps)
         else:
-            theta = self.get_theta2(i)
+            theta = cp.array(self.get_theta2(i))
             d1 = self.pd[i]
             d2 = self.pd[i + 1]
-            U_bond = self.U[i].toarray()
+            U_bond = cp.array(self.U[i].toarray())
             U_bond = U_bond.reshape([d1, d2, d1, d2])
             # i j [i*] [j*], vL [i] [j] vR
             # mempool.free_all_blocks()
-            Utheta = np.tensordot(U_bond, theta,
+            Utheta = cp.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
-            # del theta, U_bond
-            # mempool.free_all_blocks()
-            Utheta = cp.transpose(cp.array(Utheta), [2, 0, 1, 3])  # vL i j vR
+            del theta, U_bond
+            mempool.free_all_blocks()
+            Utheta = cp.transpose(Utheta, [2, 0, 1, 3])  # vL i j vR
+            Utheta = Utheta.get()
             mempool.free_all_blocks()
             self.split_truncate_theta(Utheta, i, chi_max, eps, gpu=True)
-            del Utheta
             mempool.free_all_blocks()
 
 
