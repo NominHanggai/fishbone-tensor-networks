@@ -14,7 +14,7 @@ import scipy.integrate as integrate
 import sympy
 import scipy
 from sympy.utilities.lambdify import lambdify
-from fishbonett.stuff import drude, temp_factor
+
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -154,9 +154,7 @@ class SpinBoson1D:
         if swap==1:
             print("swap: on")
             Utheta = einsum('ijkl,PklQ->PjiQ', U_bond, theta)
-        elif swap==-1:
-            print("swap: off")
-            Utheta = np.transpose(theta,[0,2,1,3])
+
         elif swap==0:
             print("swap: off")
             Utheta = einsum('ijkl,PklQ->PijQ', U_bond, theta)
@@ -172,7 +170,7 @@ class SpinBoson:
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
-        self.sd = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
+        self.sd = [lambda x: np.heaviside(x, 1) / 1. * exp(-x /100)] * self.pd_spin
         self.domain = [0, 1]
         self.he_dy = np.eye(self.pd_spin)
         self.h1e = np.eye(self.pd_spin)
@@ -198,28 +196,22 @@ class SpinBoson:
 
     def build_coupling(self, g, ncap):
         n = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
-
-    def poly(self):
-        k = self.k_list
-        w = self.w_list
-        pn_list = [0, 1/k[0]]
-        x = sympy.symbols("x")
-        for i in range(1, len(k)):
-            pi_1 = pn_list[i]
-            pi_2 = pn_list[i - 1]
-            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
-            pn_list.append(pi)
-        pn_list = pn_list[1:]
-        return [lambdify(x,pn) for pn in pn_list]
+        for j in self.sd:
+            w_list, k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
+            self.w_list.append(w_list)
+            self.k_list.append(k_list)
 
     def diag(self):
-        w= self.w_list
-        k = self.k_list
-        self.coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
-        freq, coef = np.linalg.eigh(self.coup)
-        sign = np.sign(coef[0,:])
-        coef = coef.dot(np.diag(sign))
+        freq = []
+        coef = []
+        for w_list, k_list in zip(self.w_lsit, self.k_list):
+            w= self.w_list
+            k = self.k_list
+            coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
+            _freq, _coef = np.linalg.eigh(coup)
+            freq.append(freq)
+            sign = np.sign(coef[0,:])
+            coef.append(_coef.dot(np.diag(sign)))
         return freq, coef
 
     def get_dk(self, t,star=False):
@@ -235,22 +227,18 @@ class SpinBoson:
         else:
             phase_factor = np.array([e(w, t) for w in freq])
             print("Geting d's")
-            j = lambda w: np.pi*4*drude(w, lam=4.0*78.53981499999999/2, gam=0.25*4*19.634953749999998
-                                  ) * temp_factor(226.00253972894595*0.5*1,w)
-            g=1
-            def h_squared(x):
-                return j(g * x) * g / np.pi
-            j_list = np.array([np.sqrt(h_squared(x)) for x in freq])
-            # print(freq)
-            # print(j_list)
-            # print(j0)
             perm = np.abs(j0).argsort()
-            shuffle = coef.T
+            shuffle = coef.T#[perm]
+            # from scipy.linalg import logm
+            # sh = logm(shuffle)
+            # shuffle = expm(sh+sh@sh)
+            # d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
+
             d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt = d_nt + d_nt_p
             # print(f'd_nt{d_nt}')
             d_nt = d_nt[::-1]
+
+            # print(coef)
             return d_nt
 
     def get_h2(self, t, delta):

@@ -6,7 +6,7 @@ from scipy.sparse.linalg import svds as sparsesvd
 from copy import deepcopy as dcopy
 from fbpca import pca as rsvd
 from opt_einsum import contract as einsum
-
+np.seterr(all='warn', over='raise')
 
 def svd(A, b, full_matrices=False):
     dim = min(A.shape[0], A.shape[1])
