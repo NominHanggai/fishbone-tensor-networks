@@ -146,6 +146,10 @@ class SpinBoson1D:
         self.B[i] = A
         self.B[i + 1] = B
 
+    def update_on_body(self, h, i, dt):
+        U_site = calc_U(h, dt)
+        self.B[i] = einsum('ij,PjQ->PiQ', U_site, self.B[i])
+
     def update_bond(self, i: int, chi_max: int, eps: float, swap):
         theta = self.get_theta2(i)
         U_bond = self.U[i]
@@ -253,7 +257,7 @@ class SpinBoson:
             d_nt = d_nt[::-1]
             return d_nt
 
-    def get_h2(self, t, delta):
+    def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
         freq = self.freq
         coef = self.coef
@@ -281,8 +285,10 @@ class SpinBoson:
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         site = delta*kron(np.eye(d1), self.h1e)
-        h2[-1] = (h2[-1][0] + site, d1, d2)
-        # h2[-1] = (h2[-1][0], d1, d2)
+        if inc_sys is True:
+            h2[-1] = (h2[-1][0] + site, d1, d2)
+        else:
+            h2[-1] = (h2[-1][0], d1, d2)
         return h2
 
     def build(self, g, ncap=20000):
@@ -294,13 +300,13 @@ class SpinBoson:
         # print("Hamiltonian Over")
         # self.H = hee
 
-    def get_u(self, t, dt, mode='normal'):
-        self.H = self.get_h2(t, dt)
+    def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
+        self.H = self.get_h2(t, dt, inc_sys)
         U1 = dcopy(self.H)
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray(), 1)
+            u = calc_U(h.toarray()/factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             # print(u)
