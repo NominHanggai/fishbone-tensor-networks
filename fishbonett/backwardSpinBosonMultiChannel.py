@@ -10,10 +10,9 @@ from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
-import scipy.integrate as integrate
-import sympy
 import scipy
-from sympy.utilities.lambdify import lambdify
+from fishbonett.lanczos import lanczos
+from fishbonett.stuff import temp_factor, sigma_z
 
 def _c(dim: int):
     """
@@ -166,7 +165,7 @@ class SpinBoson1D:
 
 class SpinBoson:
 
-    def __init__(self, pd):
+    def __init__(self, pd, coup_mat, freq, temp):
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
@@ -174,13 +173,22 @@ class SpinBoson:
         self.domain = [0, 1]
         self.he_dy = np.eye(self.pd_spin)
         self.h1e = np.eye(self.pd_spin)
-        self.k_list = []
-        self.w_lsit = []
+        self.temp = temp
+        freq = np.array(freq)
+        print(freq)
+        self.freq = np.concatenate((freq, -freq))
+        # self.freq = freq
+        self.coup_mat = [ mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
+        # self.coup_mat = [mat  for n, mat in enumerate(coup_mat)]
+        self.size = self.coup_mat[0].shape[0]
+        self.coup_mat_np = np.array(self.coup_mat)
+        #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
         self.coef= []
-        self.freq = []
+
         self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
         self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
+
         # self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
 
     def get_coupling(self, n, j, domain, g, ncap=20000):
@@ -196,23 +204,7 @@ class SpinBoson:
 
     def build_coupling(self, g, ncap):
         n = len(self.pd_boson)
-        for j in self.sd:
-            w_list, k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
-            self.w_list.append(w_list)
-            self.k_list.append(k_list)
-
-    def diag(self):
-        freq = []
-        coef = []
-        for w_list, k_list in zip(self.w_lsit, self.k_list):
-            w= self.w_list
-            k = self.k_list
-            coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
-            _freq, _coef = np.linalg.eigh(coup)
-            freq.append(freq)
-            sign = np.sign(coef[0,:])
-            coef.append(_coef.dot(np.diag(sign)))
-        return freq, coef
+        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
     def get_dk(self, t,star=False):
         freq = self.freq
@@ -241,54 +233,57 @@ class SpinBoson:
             # print(coef)
             return d_nt
 
-    def get_h2(self, t, delta):
+    def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
         freq = self.freq
         coef = self.coef
         e = self.phase
-        k0 = self.k_list[0]
-        j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
+        mat_list = self.coup_mat_np
         phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        perm = np.abs(j0).argsort()
-        shuffle = coef.T#[perm]
-        d_nt = [einsum('k,k,k', j0, shuffle[:,n], phase_factor) for n in range(len(freq))]
-        # print(f'd_nt{d_nt}')
-        d_nt = d_nt[::-1]
+        d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
         h2 = []
-        # ul = calc_U(self.h1e, -t)
-        # he_dy = ul @ self.he_dy @ (ul.T.conj())
-        he_dy = self.he_dy
-        for i, k in enumerate(d_nt):
+        for i, k in enumerate(d_nt_mat[0:self.len_boson]):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
-            kc = k.conjugate()
-            coup = kron(k*c1 + kc* c1.T, he_dy)
+            kc = k.conjugate().T
+            coup = kron(c1, k) + kron(c1.T, kc)
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         site = delta*kron(np.eye(d1), self.h1e)
-        h2[-1] = (h2[-1][0] + site, d1, d2)
-        # h2[-1] = (h2[-1][0], d1, d2)
-        return h2
+        if inc_sys is True:
+            h2[0] = (h2[0][0] + site, d1, d2)
+        else:
+            pass
+        h2 = h2[0:self.len_boson]
+        return h2[::-1]
 
-    def build(self, g, ncap=20000):
-        self.build_coupling(g, ncap)
+    def build(self, n
+              #g
+              # , ncap=20000
+              ):
+        def tri_diag(self, n):
+            v0 = [mat[n, n] for mat in self.coup_mat]
+            h = np.diag(self.freq)
+            tri_mat, coef = lanczos(h, v0)
+            return tri_mat, coef
+        # self.build_coupling(g, ncap)
         print("Coupling Over")
-        self.freq, self.coef = self.diag()
-        # self.pn_list = self.poly()
-        # hee = self.get_h2(t)
-        # print("Hamiltonian Over")
-        # self.H = hee
+        _, Q = tri_diag(self, n)
+        res = np.diagonal(Q.T@Q-np.eye(Q.shape[0]))
+        print('Lanczos Residual:', res@res)
+        # print(repr(Q[:,0])) ## Should be parallel to one of the coup_mat vectors
+        self.coef = Q
 
-    def get_u(self, t, dt, mode='normal'):
-        self.H = self.get_h2(t, dt)
+    def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
+        self.H = self.get_h2(t, dt, inc_sys)
         U1 = dcopy(self.H)
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray(), 1)
+            u = calc_U(h.toarray()/factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             # print(u)
@@ -296,5 +291,5 @@ class SpinBoson:
             u2 = np.transpose(u1, [1,0,3,2])
             U1[i] = u1
             U2[i] = u2
-            print("Exponential", i, r0 * s0, r1 * s1)
+            # print("Exponential", i, r0 * s0, r1 * s1)
         return U1, U2

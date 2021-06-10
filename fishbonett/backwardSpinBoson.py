@@ -235,7 +235,7 @@ class SpinBoson:
         if star:
             indexes = np.abs(freq).argsort()
             j0 = j0[indexes]
-            return j0, freq, coef
+            return j0, freq[indexes], coef
         else:
             phase_factor = np.array([e(w, t) for w in freq])
             print("Geting d's")
