@@ -177,11 +177,12 @@ class SpinBoson:
         freq = np.array(freq)
         print(freq)
         self.freq = np.concatenate((freq, -freq))
-        # self.freq = freq
         self.coup_mat = [ mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
-        # self.coup_mat = [mat  for n, mat in enumerate(coup_mat)]
         self.size = self.coup_mat[0].shape[0]
-        self.coup_mat_np = np.array(self.coup_mat)
+        # index = self.freq.argsort()
+        # self.freq = self.freq[index]
+        self.coup_mat_np = np.array(self.coup_mat)#[index]
+
         #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
         self.coef= []
@@ -210,28 +211,14 @@ class SpinBoson:
         freq = self.freq
         coef = self.coef
         e = self.phase_func
-        k0 = self.k_list[0]
-        j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
-        if star:
-            indexes = np.abs(freq).argsort()
-            j0 = j0[indexes]
-            return j0, freq, coef
-        else:
+        mat_list = self.coup_mat_np
+        if star is False:
             phase_factor = np.array([e(w, t) for w in freq])
             print("Geting d's")
-            perm = np.abs(j0).argsort()
-            shuffle = coef.T#[perm]
-            # from scipy.linalg import logm
-            # sh = logm(shuffle)
-            # shuffle = expm(sh+sh@sh)
-            # d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-
-            d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            # print(f'd_nt{d_nt}')
-            d_nt = d_nt[::-1]
-
-            # print(coef)
-            return d_nt
+            d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
+            return np.array([mat[0,0] for mat in d_nt_mat])
+        else:
+            return coef
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
@@ -291,5 +278,5 @@ class SpinBoson:
             u2 = np.transpose(u1, [1,0,3,2])
             U1[i] = u1
             U2[i] = u2
-            # print("Exponential", i, r0 * s0, r1 * s1)
+            print("Exponential", i, r0 * s0, r1 * s1)
         return U1, U2
