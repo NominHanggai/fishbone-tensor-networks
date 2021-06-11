@@ -251,8 +251,8 @@ class SpinBoson:
             perm = np.abs(j0).argsort()
             shuffle = coef.T
             d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt = d_nt + d_nt_p
+            # d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
+            d_nt = d_nt #+ d_nt_p
             # print(f'd_nt{d_nt}')
             d_nt = d_nt[::-1]
             return d_nt

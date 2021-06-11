@@ -176,12 +176,15 @@ class SpinBoson:
         self.temp = temp
         freq = np.array(freq)
         print(freq)
-        self.freq = np.concatenate((freq, -freq))
+        self.freq = np.concatenate((-freq, freq))
         self.coup_mat = [ mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
+        print('temp', temp)
+        print("coup_mat", [mat[0,0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
-        # index = self.freq.argsort()
-        # self.freq = self.freq[index]
-        self.coup_mat_np = np.array(self.coup_mat)#[index]
+        index = self.freq.argsort()
+        self.freq = self.freq[index]
+        self.coup_mat_np = np.array(self.coup_mat)[index]
+
 
         #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
@@ -252,7 +255,8 @@ class SpinBoson:
               # , ncap=20000
               ):
         def tri_diag(self, n):
-            v0 = [mat[n, n] for mat in self.coup_mat]
+            v0 = [mat[n, n] for mat in self.coup_mat_np]
+            print(v0)
             h = np.diag(self.freq)
             tri_mat, coef = lanczos(h, v0)
             return tri_mat, coef
