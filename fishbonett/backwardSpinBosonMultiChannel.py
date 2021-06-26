@@ -177,7 +177,9 @@ class SpinBoson:
         freq = np.array(freq)
         print(freq)
         self.freq = np.concatenate((-freq, freq))
-        self.coup_mat = [ mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
+        self.coup_mat = [mat  * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
+        # self.freq = np.array(freq)
+        # self.coup_mat = [mat  for n, mat in enumerate(coup_mat)]
         print('temp', temp)
         print("coup_mat", [mat[0,0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
@@ -239,7 +241,7 @@ class SpinBoson:
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
-            kc = k.conjugate().T
+            kc = k.conjugate()
             coup = kron(c1, k) + kron(c1.T, kc)
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
