@@ -176,6 +176,7 @@ class SpinBoson1D:
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
             # vL [vL'] * [vL] i vR -> vL i vR
+            print(self.S[i] ** (-1).shape, A.shape)
             A = cp.tensordot(cp.diag(self.S[i] ** (-1)), A, [1, 0])
             # vL i [vR] * [vR] vR -> vL i vR
             A = cp.tensordot(A, cp.diag(S), [2, 0])
