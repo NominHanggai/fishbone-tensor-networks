@@ -226,7 +226,7 @@ class SpinBoson:
         coef = coef.dot(np.diag(sign))
         return freq, coef
 
-    def get_dk(self, t,star=False):
+    def get_dk(self, t, star=False):
         freq = self.freq
         coef = self.coef
         e = self.phase_func
@@ -234,9 +234,10 @@ class SpinBoson:
         j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
         if star:
             indexes = freq.argsort()
+            freq = freq[indexes]
             j0 = j0[indexes]
             reorg = sum([j0[i]**2/ freq[i] for i in range(len(j0))])
-            return j0, freq[indexes], coef, reorg
+            return j0, freq, coef, reorg
         else:
             phase_factor = np.array([e(w, t) for w in freq])
             print("Geting d's")
