@@ -646,7 +646,7 @@ class SpinBoson1D:
             print("-2 TOTAl", mempool.total_bytes())
             d1 = self.pd[i]
             d2 = self.pd[i + 1]
-            U_bond = self.U[i].toarray()
+            U_bond = self.U[i]
             print("-3 USED", mempool.used_bytes())
             print("-3 TOTAl", mempool.total_bytes())
             U_bond = U_bond.reshape([d1, d2, d1, d2])
@@ -654,7 +654,7 @@ class SpinBoson1D:
             print("-4 TOTAl", mempool.total_bytes())
             # i j [i*] [j*], vL [i] [j] vR
             # mempool.free_all_blocks()
-            Utheta = np.tensordot(U_bond, theta,
+            Utheta = cp.tensordot(U_bond, theta,
                                   axes=([2, 3], [1, 2]))
             print("-5 USED", mempool.used_bytes())
             print("-5 TOTAl", mempool.total_bytes())
