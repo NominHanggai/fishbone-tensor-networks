@@ -214,8 +214,7 @@ class SpinBoson1D:
             print("-3 TOTAl", mempool.total_bytes())
             # i j [i*] [j*], vL [i] [j] vR
             # mempool.free_all_blocks()
-            utheta = cp.tensordot(u_bond, theta,
-                                  axes=([2, 3], [1, 2]))
+            utheta = einsum('ijkl,PklQ->PjiQ', u_bond, theta)
             print("-5 USED", mempool.used_bytes())
             print("-5 TOTAl", mempool.total_bytes())
             del theta, u_bond
