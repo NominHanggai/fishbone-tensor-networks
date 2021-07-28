@@ -192,7 +192,7 @@ class SpinBoson1D:
             theta = self.get_theta2(i)
             u_bond = self.U[i]
             # i j [i*] [j*], vL [i] [j] vR
-            print(theta.shape, U_bond.shape)
+            print(theta.shape, u_bond.shape)
             if swap == 1:
                 print("swap: on")
                 utheta = einsum('ijkl,PklQ->PjiQ', u_bond, theta)
