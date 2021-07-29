@@ -148,7 +148,9 @@ class SpinBoson1D:
             print("GPU running")
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
+            print(theta.shape)
             theta = cp.array(theta)
+            print(theta.shape)
             print("2 USED", mempool.used_bytes() * 1e-6)
             print("2 TOTAl", mempool.total_bytes() * 1e-6)
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
@@ -169,14 +171,17 @@ class SpinBoson1D:
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
             piv = cp.argsort(S)[::-1][:chivC]
+            print(A.shape, S.shape, B.shape)
             A, S, B = A[:, piv], S[piv], B[piv, :]
             S = S / cp.linalg.norm(S)
             # A: {vL*i, chivC} -> vL i vR=chivC
+            print(A.shape)
             A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
+            print(A.shape)
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
             # vL [vL'] * [vL] i vR -> vL i vR
-            print(self.S[i] ** (-1).shape, A.shape)
+            print(self.S[i] ** (-1), A.shape)
             A = cp.tensordot(cp.diag(self.S[i] ** (-1)), A, [1, 0])
             # vL i [vR] * [vR] vR -> vL i vR
             A = cp.tensordot(A, cp.diag(S), [2, 0])
@@ -222,12 +227,6 @@ class SpinBoson1D:
             mempool.free_all_blocks()
             print("-6 USED", mempool.used_bytes())
             print("-6 TOTAl", mempool.total_bytes())
-            utheta = cp.transpose(utheta, [2, 0, 1, 3])  # vL i j vR
-            print("-7 USED", mempool.used_bytes())
-            print("-7 TOTAl", mempool.total_bytes())
-            mempool.free_all_blocks()
-            print("-8 USED", mempool.used_bytes())
-            print("-8 TOTAl", mempool.total_bytes())
             self.split_truncate_theta(utheta, i, chi_max, eps, gpu=True)
             mempool.free_all_blocks()
             print("-9 USED", mempool.used_bytes())
