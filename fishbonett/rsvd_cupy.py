@@ -34,11 +34,10 @@ def rsvd(A, k=6, raw=False, n_iter=2, l=None):
     # SVD A directly if l >= m/1.25 or l >= n/1.25.
     #
     if l >= m / 1.25 or l >= n / 1.25:
-        print("Normal SVD")
         t0 = time()
         (U, s, Va) = cp.linalg.svd(A, full_matrices=False)
         t1 = time()
-        print(f'true SVD. TIME {t1-t0}')
+        print(f'FULL SVD. TIME {t1-t0}')
         #
         # Retain only the leftmost k columns of U, the uppermost
         # k rows of Va, and the first k entries of s.

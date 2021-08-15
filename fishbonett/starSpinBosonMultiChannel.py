@@ -175,7 +175,7 @@ class SpinBoson:
         # freq = freq[::-1]
         h2 = []
         for i, mat in enumerate(mat_list):
-            print(f"Chain Len {len(self.pd_boson)}; mat_list Len {len(mat_list)}")
+            #print(f"Chain Len {len(self.pd_boson)}; mat_list Len {len(mat_list)}")
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)

@@ -143,45 +143,27 @@ class SpinBoson1D:
             self.B[i] = A
             self.B[i + 1] = B
         elif gpu is True and CUPY_SUCCESS is True:
-            print("1 USED", mempool.used_bytes() * 1e-6)
-            print("1 TOTAl", mempool.total_bytes() * 1e-6)
             print("GPU running")
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
-            print(theta.shape)
             theta = cp.array(theta)
-            print(theta.shape)
-            print("2 USED", mempool.used_bytes() * 1e-6)
-            print("2 TOTAl", mempool.total_bytes() * 1e-6)
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
-            print("3 USED", mempool.used_bytes() * 1e-6)
-            print("3 TOTAl", mempool.total_bytes() * 1e-6)
             mempool.free_all_blocks()
-            print("4 USED", mempool.used_bytes() * 1e-6)
-            print("4 TOTAl", mempool.total_bytes() * 1e-6)
             A, S, B = cusvd(theta, chi_max, full_matrices=False)
-            print("5 USED", mempool.used_bytes() * 1e-6)
-            print("5 TOTAl", mempool.total_bytes() * 1e-6)
             del theta
             mempool.free_all_blocks()
-            print("6 USED", mempool.used_bytes() * 1e-6)
-            print("6 TOTAl", mempool.total_bytes() * 1e-6)
             chivC = min(chi_max, cp.sum(S > eps).item())
             print("Error Is", cp.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
             # keep the largest `chivC` singular values
             piv = cp.argsort(S)[::-1][:chivC]
-            print(A.shape, S.shape, B.shape)
             A, S, B = A[:, piv], S[piv], B[piv, :]
             S = S / cp.linalg.norm(S)
             # A: {vL*i, chivC} -> vL i vR=chivC
-            print(A.shape)
             A = cp.reshape(A, [chi_left_on_left, phys_left, chivC])
-            print(A.shape)
             # B: {chivC, j*vR} -> vL==chivC j vR
             B = cp.reshape(B, [chivC, phys_right, chi_right_on_right])
             # vL [vL'] * [vL] i vR -> vL i vR
-            print(self.S[i] ** (-1), A.shape)
             A = cp.tensordot(cp.diag(self.S[i] ** (-1)), A, [1, 0])
             # vL i [vR] * [vR] vR -> vL i vR
             A = cp.tensordot(A, cp.diag(S), [2, 0])
@@ -210,24 +192,17 @@ class SpinBoson1D:
                 raise ValueError
             self.split_truncate_theta(utheta, i, chi_max, eps)
         else:
-            print("-1 USED", mempool.used_bytes())
-            print("-1 TOTAl", mempool.total_bytes())
             theta = cp.array(self.get_theta2(i))
-            print("-2 USED", mempool.used_bytes())
-            print("-2 TOTAl", mempool.total_bytes())
             u_bond = cp.array(self.U[i])
-            print("-3 USED", mempool.used_bytes())
-            print("-3 TOTAl", mempool.total_bytes())
             # i j [i*] [j*], vL [i] [j] vR
-            # mempool.free_all_blocks()
-            utheta = einsum('ijkl,PklQ->PjiQ', u_bond, theta)
-            print("-5 USED", mempool.used_bytes())
-            print("-5 TOTAl", mempool.total_bytes())
-            del theta, u_bond
-            mempool.free_all_blocks()
-            print("-6 USED", mempool.used_bytes())
-            print("-6 TOTAl", mempool.total_bytes())
+            print(theta.shape, u_bond.shape)
+            if swap == 1:
+                print("swap: on")
+                utheta = einsum('ijkl,PklQ->PjiQ', u_bond, theta)
+            elif swap == 0:
+                print("swap: off")
+                utheta = einsum('ijkl,PklQ->PijQ', u_bond, theta)
+            else:
+                print(swap)
+                raise ValueError
             self.split_truncate_theta(utheta, i, chi_max, eps, gpu=True)
-            mempool.free_all_blocks()
-            print("-9 USED", mempool.used_bytes())
-            print("-9 TOTAl", mempool.total_bytes())
