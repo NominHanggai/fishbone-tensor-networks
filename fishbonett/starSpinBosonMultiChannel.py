@@ -2,7 +2,7 @@ import numpy as np
 from fishbonett.stuff import temp_factor
 from scipy.linalg import svd as csvd
 from scipy.linalg import expm
-from fbpca import pca as rsvd
+from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
 from scipy.sparse.linalg import expm as sparseExpm
 from scipy.sparse import csc_matrix

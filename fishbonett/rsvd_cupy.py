@@ -2,9 +2,6 @@ import cupy as cp
 import numpy as np
 from cupyx.scipy.linalg import lu
 from time import time
-from fbpca import pca
-import scipy as spy
-from time import time
 
 mp = cp.get_default_memory_pool()
 

@@ -4,7 +4,7 @@ from scipy.linalg import expm
 from scipy.linalg import svd as csvd
 from scipy.sparse.linalg import svds as sparsesvd
 from copy import deepcopy as dcopy
-from fbpca import pca as rsvd
+from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
 np.seterr(all='warn', over='raise')
 

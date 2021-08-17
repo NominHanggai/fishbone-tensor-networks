@@ -1,7 +1,7 @@
 import numpy as np
 
 from scipy.linalg import svd as csvd
-from fbpca import pca as rsvd
+from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
 from scipy.sparse import kron as skron
 import scipy

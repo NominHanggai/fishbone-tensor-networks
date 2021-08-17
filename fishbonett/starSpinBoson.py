@@ -2,7 +2,7 @@ import numpy as np
 
 from scipy.linalg import svd as csvd
 from scipy.linalg import expm
-from fbpca import pca as rsvd
+from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
 from scipy.sparse.linalg import expm as sparseExpm
 from scipy.sparse import csc_matrix
@@ -253,10 +253,6 @@ class SpinBoson:
         self.build_coupling(g, ncap)
         print("Coupling Over")
         self.freq, self.coef = self.diag()
-        # self.pn_list = self.poly()
-        # hee = self.get_h2(t)
-        # print("Hamiltonian Over")
-        # self.H = hee
 
     def get_u(self, t, dt, mode='normal'):
         hee = self.get_h2(t, dt)
