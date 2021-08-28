@@ -175,23 +175,19 @@ class SpinBoson:
         self.h1e = np.eye(self.pd_spin)
         self.temp = temp
         freq = np.array(freq)
-        print(freq)
         self.freq = np.concatenate((-freq, freq))
-        self.coup_mat = [mat  * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
-        # self.freq = np.array(freq)
-        # self.coup_mat = [mat  for n, mat in enumerate(coup_mat)]
-        print('temp', temp)
-        print("coup_mat", [mat[0,0] for mat in self.coup_mat])
+        print("coup_mat Zero Temp", [x[0,0] for x in coup_mat])
+        coup_mat = np.concatenate((coup_mat, coup_mat))
+        self.coup_mat = [mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat)]
+        print("coup_mat", [mat[0, 0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
         index = self.freq.argsort()
         self.freq = self.freq[index]
+        # print(f"self.freq {self.freq}")
         self.coup_mat_np = np.array(self.coup_mat)[index]
-
-
         #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
         self.coef= []
-
         self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
         self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
 
