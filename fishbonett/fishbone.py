@@ -205,7 +205,7 @@ class FishBoneNet:
                 theta, chi_try, full_matrices=False)
             chivC = min(chi_max, np.sum(S > eps), chi_try)
             while chivC == chi_try and chi_try < min(*theta.shape):
-                print(f"Expanding chi_try by{self.pre_factor}")
+                print(f"Expanding chi_try by {self.pre_factor} times")
                 chi_try = int(round(self.pre_factor * chi_try))
                 higher_gamma_up_canonical, S, lower_gamma_down_canonical = svd(theta, chi_try, full_matrices=False)
                 chivC = min(chi_max, np.sum(S > eps), chi_try)

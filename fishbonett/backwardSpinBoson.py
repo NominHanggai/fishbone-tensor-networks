@@ -108,7 +108,7 @@ class SpinBoson1D:
             tensor = np.zeros(dim)
             tensor[(0,) * len(dim)] = 1.
             return tensor
-
+        self.pre_factor = 1.2
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1, d, 1]) for d in pd]
@@ -127,9 +127,18 @@ class SpinBoson1D:
          phys_right, chi_right_on_right) = theta.shape
         theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                    phys_right * chi_right_on_right])
-        A, S, B = svd(theta, chi_max, full_matrices=False)
+
+        chi_try = int(self.pre_factor * len(self.S[i + 1])) + 10
+        A, S, B = svd(theta, chi_try, full_matrices=False)
+        chivC = min(chi_max, np.sum(S > eps), chi_try)
+        while chivC == chi_try and chi_try < min(*theta.shape):
+            print(f"Expanding chi_try by {self.pre_factor}")
+            chi_try = int(round(self.pre_factor * chi_try))
+            A, S, B = svd(theta, chi_try, full_matrices=False)
+            chivC = min(chi_max, np.sum(S > eps), chi_try)
+
         chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
+        print("Error Is", np.sum(S > eps), chi_try, S[chivC:] @ S[chivC:], chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
