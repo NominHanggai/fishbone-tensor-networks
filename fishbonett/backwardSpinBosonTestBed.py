@@ -10,10 +10,11 @@ from numpy import exp
 import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
+import scipy.integrate as integrate
+import sympy
 import scipy
-from fishbonett.lanczos import lanczos
-from fishbonett.stuff import temp_factor, sigma_z
-
+from sympy.utilities.lambdify import lambdify
+from fishbonett.stuff import drude, temp_factor
 def _c(dim: int):
     """
     Creates the annihilation operator.
@@ -107,12 +108,13 @@ class SpinBoson1D:
             tensor = np.zeros(dim)
             tensor[(0,) * len(dim)] = 1.
             return tensor
-
+        self.pre_factor = 1.5
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1, d, 1]) for d in pd]
         self.S = [np.ones([1], np.float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
+
 
     def get_theta1(self, i: int):
         return np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
@@ -126,9 +128,17 @@ class SpinBoson1D:
          phys_right, chi_right_on_right) = theta.shape
         theta = np.reshape(theta, [chi_left_on_left * phys_left,
                                    phys_right * chi_right_on_right])
-        A, S, B = svd(theta, chi_max, full_matrices=False)
-        chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_max, S[chivC:] @ S[chivC:], chivC)
+
+        chi_try = int(self.pre_factor * len(self.S[i + 1])) + 10
+        A, S, B = svd(theta, chi_try, full_matrices=False)
+        chivC = min(chi_max, np.sum(S > eps), chi_try)
+        while chivC == chi_try and chi_try < min(*theta.shape):
+            print(f"Expanding chi_try by {self.pre_factor}")
+            chi_try = int(round(self.pre_factor * chi_try))
+            A, S, B = svd(theta, chi_try, full_matrices=False)
+            chivC = min(chi_max, np.sum(S > eps), chi_try)
+
+        print("Error Is", np.sum(S > eps), chi_try, S[chivC:] @ S[chivC:], chivC)
         # keep the largest `chivC` singular values
         piv = np.argsort(S)[::-1][:chivC]
         A, S, B = A[:, piv], S[piv], B[piv, :]
@@ -145,6 +155,10 @@ class SpinBoson1D:
         self.B[i] = A
         self.B[i + 1] = B
 
+    def update_on_body(self, h, i, dt):
+        U_site = calc_U(h, dt)
+        self.B[i] = einsum('ij,PjQ->PiQ', U_site, self.B[i])
+
     def update_bond(self, i: int, chi_max: int, eps: float, swap):
         theta = self.get_theta2(i)
         U_bond = self.U[i]
@@ -153,7 +167,9 @@ class SpinBoson1D:
         if swap==1:
             print("swap: on")
             Utheta = einsum('ijkl,PklQ->PjiQ', U_bond, theta)
-
+        elif swap==-1:
+            print("swap: off")
+            Utheta = np.transpose(theta,[0,2,1,3])
         elif swap==0:
             print("swap: off")
             Utheta = einsum('ijkl,PklQ->PijQ', U_bond, theta)
@@ -165,34 +181,23 @@ class SpinBoson1D:
 
 class SpinBoson:
 
-    def __init__(self, pd, coup_mat, freq, temp):
+    def __init__(self, pd, beta=1):
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
-        self.sd = lambda w: 0
+        self.sd = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
         self.domain = [0, 1]
         self.he_dy = np.eye(self.pd_spin)
         self.h1e = np.eye(self.pd_spin)
-        self.sd_mat = np.full((self.pd_spin, self.pd_spin), self.sd, dtype=object)
-        self.domain = [0, 1]
-        #
-        # self.temp = temp
-        # freq = np.array(freq)
-        # print(freq)
-        # self.freq = np.concatenate((-freq, freq))
-        # self.coup_mat = [ mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat + coup_mat)]
-        # print('temp', temp)
-        # print("coup_mat", [mat[0,0] for mat in self.coup_mat])
-        # self.size = self.coup_mat[0].shape[0]
-        # index = self.freq.argsort()
-        # self.freq = self.freq[index]
-        # self.coup_mat_np = np.array(self.coup_mat)[index]
+        self.k_list = []
+        self.w_lsit = []
         self.H = []
-        self.coef= np.full((self.pd_spin, self.pd_spin), np.eye(self.pd_boson))
+        self.coef= []
+        self.freq = []
         self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
         self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
-
         # self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
+        self.beta = beta
 
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
@@ -205,78 +210,110 @@ class SpinBoson:
         self.domain = domain
         return w_list, k_list
 
-    def get_dk(self, t,star=False):
+    def build_coupling(self, g, ncap):
+        n = len(self.pd_boson)
+        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
+
+    def poly(self):
+        k = self.k_list
+        w = self.w_list
+        pn_list = [0, 1/k[0]]
+        x = sympy.symbols("x")
+        for i in range(1, len(k)):
+            pi_1 = pn_list[i]
+            pi_2 = pn_list[i - 1]
+            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
+            pn_list.append(pi)
+        pn_list = pn_list[1:]
+        return [lambdify(x,pn) for pn in pn_list]
+
+    def diag(self):
+        w= self.w_list
+        k = self.k_list
+        self.coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
+        freq, coef = np.linalg.eigh(self.coup)
+        sign = np.sign(coef[0,:])
+        coef = coef.dot(np.diag(sign))
+        return freq, coef
+
+    def get_dk(self, t, star=False):
         freq = self.freq
         coef = self.coef
         e = self.phase_func
-        mat_list = self.coup_mat_np
-        if star is False:
+        k0 = self.k_list[0]
+        j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
+        if star:
+            indexes = freq.argsort()
+            freq = freq[indexes]
+            j0 = j0[indexes]
+            reorg = sum([j0[i]**2/ freq[i] for i in range(len(j0))])
+            return j0, freq, coef, reorg
+        else:
             phase_factor = np.array([e(w, t) for w in freq])
             print("Geting d's")
-            d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
-            return np.array([mat[0,0] for mat in d_nt_mat])
-        else:
-            return coef
+            j = lambda w: np.pi*4*drude(w, lam=4.0*78.53981499999999/2, gam=0.25*4*19.634953749999998
+                                  ) * temp_factor(226.00253972894595*0.5*1,w)
+            g=1
+            def h_squared(x):
+                return j(g * x) * g / np.pi
+            j_list = np.array([np.sqrt(h_squared(x)) for x in freq])
+            # print(freq)
+            # print(j_list)
+            # print(j0)
+            perm = np.abs(j0).argsort()
+            shuffle = coef.T
+            d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
+            # d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
+            d_nt = d_nt #+ d_nt_p
+            # print(f'd_nt{d_nt}')
+            d_nt = d_nt[::-1]
+            return d_nt
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
         freq = self.freq
         coef = self.coef
         e = self.phase
-        mat_list = self.coup_mat_np
+        k0 = self.k_list[0]
+        j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
         phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
+        perm = np.abs(j0).argsort()
+        shuffle = coef.T#[perm]
+        d_nt = [einsum('k,k,k', j0, shuffle[:,n], phase_factor) for n in range(len(freq))]
+        # print(f'd_nt{d_nt}')
+        d_nt = d_nt[::-1]
         h2 = []
-        for i, k in enumerate(d_nt_mat[0:self.len_boson]):
+        # ul = calc_U(self.h1e, -t)
+        # he_dy = ul @ self.he_dy @ (ul.T.conj())
+        he_dy = self.he_dy
+        for i, k in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
-            kc = k.conjugate().T
-            coup = kron(c1, k) + kron(c1.T, kc)
+            kc = k.conjugate()
+            coup = kron(k*c1 + kc * c1.T, he_dy)
+            z = np.trace(expm(-self.beta*(c1.T@c1)))
+            print(z)
+            coup = coup + kron(-self.beta*1j*(c1.T@c1), np.eye(d2)) + np.log(z)*kron(np.eye(d1), np.eye(d2))
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
         site = delta*kron(np.eye(d1), self.h1e)
         if inc_sys is True:
-            h2[0] = (h2[0][0] + site, d1, d2)
+            h2[-1] = (h2[-1][0] + site, d1, d2)
         else:
-            pass
-        h2 = h2[0:self.len_boson]
-        return h2[::-1]
+            h2[-1] = (h2[-1][0], d1, d2)
+        return h2
 
-    def build_coupling(self, n: tuple, g, ncap=20000):
-        length = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(length, self.sd_mat[n], self.domain, g, ncap)
-
-    def build(self, n:tuple, g, ncap=20000):
-        self.build_coupling(n, g, ncap)
+    def build(self, g, ncap=20000):
+        self.build_coupling(g, ncap)
         print("Coupling Over")
-        freq, self.coef[n] = self.diag(n)
-        l = len(freq)
-        interval = [
-                       [self.domain[0], (freq[0]+freq[1])/2]
-                    ] +\
-                   [
-                       [(freq[i]+freq[i+1])/2, (freq[i+1]+freq[i+2])/2 ]
-                   for i in range(l-2)] +\
-                   [
-                       [(freq[-1] + freq[-2])/2, self.domain[1]]
-                   ]
-        print("Interval Number", len(interval))
-        coup = []
-        # for k in list(range(self.pd_spin)).remove(n[0]):
-
-
-
-    def diag(self, n: tuple):
-        w= self.w_list
-        k = self.k_list
-        tri_diag_mat = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
-        freq, coef = np.linalg.eigh(tri_diag_mat)
-        sign = np.sign(coef[0,:])
-        coef = coef.dot(np.diag(sign))
-        return freq, coef
+        self.freq, self.coef = self.diag()
+        # self.pn_list = self.poly()
+        # hee = self.get_h2(t)
+        # print("Hamiltonian Over")
+        # self.H = hee
 
     def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
         self.H = self.get_h2(t, dt, inc_sys)
