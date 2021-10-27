@@ -121,7 +121,7 @@ class SpinBoson:
         print('temp', temp)
         print("coup_mat", [mat[0, 0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
-        index = np.abs(self.freq).argsort()
+        index = np.abs(self.freq).argsort()[::-1]
         self.freq = self.freq[index]
         self.coup_mat_np = np.array(self.coup_mat)[index]
 
@@ -187,7 +187,7 @@ class SpinBoson:
         d2 = self.pd_spin
         site = delta*np.kron(np.eye(d1), self.h1e)
         h2[-1] = (h2[-1][0] + site, d1, d2)
-        return h2[::-1]
+        return h2
 
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
