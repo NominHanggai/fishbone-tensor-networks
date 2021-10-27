@@ -187,7 +187,7 @@ class SpinBoson:
         d2 = self.pd_spin
         site = delta*np.kron(np.eye(d1), self.h1e)
         h2[-1] = (h2[-1][0] + site, d1, d2)
-        return h2
+        return h2[::-1]
 
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)

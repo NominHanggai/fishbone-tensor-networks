@@ -208,20 +208,20 @@ class SpinBoson:
         n = len(self.pd_boson)
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
-    def get_dk(self, t,star=False):
-        freq = self.freq
-        coef = self.coef
-        e = self.phase_func
-        mat_list = self.coup_mat_np
-        print(mat_list.shape)
-        if star is False:
-            phase_factor = np.array([e(w, t) for w in freq])
-            print("Geting d's")
-            d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
-            return np.array([mat[0,0] for mat in d_nt_mat])
-        else:
-            reorg = sum([mat_list[i, 0, 0] ** 2 / freq[i] for i in range(len(freq))])
-            return reorg
+    # def get_dk(self, t,star=False):
+    #     freq = self.freq
+    #     coef = self.coef
+    #     e = self.phase_func
+    #     mat_list = self.coup_mat_np
+    #     print(mat_list.shape)
+    #     if star is False:
+    #         phase_factor = np.array([e(w, t) for w in freq])
+    #         print("Geting d's")
+    #         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
+    #         return np.array([mat[0,0] for mat in d_nt_mat])
+    #     else:
+    #         reorg = sum([mat_list[i, 0, 0] ** 2 / freq[i] for i in range(len(freq))])
+    #         return reorg
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
