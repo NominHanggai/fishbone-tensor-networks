@@ -14,26 +14,7 @@ import scipy.integrate as integrate
 import sympy
 import scipy
 from sympy.utilities.lambdify import lambdify
-from fishbonett.stuff import drude, temp_factor
-def _c(dim: int):
-    """
-    Creates the annihilation operator.
-    This fuction is from the package py-tedopa/tedopa.
-    https://github.com/MoritzLange/py-tedopa/tedopa/
-
-    The BSD 3-Clause License
-    Copyright (c) 2018, the py-tedopa developers.
-    All rights reserved.
-
-    :param dim: Dimension of the site it should act on
-    :type dim: int
-    :return: The annihilation operator
-    :rtype: numpy.ndarray
-    """
-    op = np.zeros((dim, dim))
-    for i in range(dim - 1):
-        op[i, i + 1] = np.sqrt(i + 1)
-    return op
+from fishbonett.stuff import drude, temp_factor, _c
 
 
 def eye(d):
@@ -80,103 +61,6 @@ def calc_U(H, dt):
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
     return scipy.linalg.expm(-dt * 1j * H)
-
-
-def _to_list(x):
-    """
-    Converts x to [x] if x is a np.ndarray. If x is None,
-    convert x(=None) to []. If x is already a list of a
-    np.ndarray return x itself. Else if x is not a list of
-    just one np.ndarray, raise TypeError.
-    :param x: an np.array or a list of one np.ndarray
-    :type x:
-    :return:
-    :rtype:
-    """
-    if x is None:
-        return []
-    elif x is list:
-        return x
-    else:
-        return [x]
-
-
-class SpinBoson1D:
-
-    def __init__(self, pd):
-        def g_state(dim):
-            tensor = np.zeros(dim)
-            tensor[(0,) * len(dim)] = 1.
-            return tensor
-        self.pre_factor = 1.2
-        self.pd_spin = pd[-1]
-        self.pd_boson = pd[0:-1]
-        self.B = [g_state([1, d, 1]) for d in pd]
-        self.S = [np.ones([1], np.float) for d in pd]
-        self.U = [np.zeros(0) for d in pd[1:]]
-
-    def get_theta1(self, i: int):
-        return np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
-
-    def get_theta2(self, i: int):
-        j = (i + 1)
-        return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
-
-    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float):
-        (chi_left_on_left, phys_left,
-         phys_right, chi_right_on_right) = theta.shape
-        theta = np.reshape(theta, [chi_left_on_left * phys_left,
-                                   phys_right * chi_right_on_right])
-
-        chi_try = int(self.pre_factor * len(self.S[i + 1])) + 10
-        A, S, B = svd(theta, chi_try, full_matrices=False)
-        chivC = min(chi_max, np.sum(S > eps), chi_try)
-        while chivC == chi_try and chi_try < min(*theta.shape):
-            print(f"Expanding chi_try by {self.pre_factor}")
-            chi_try = int(round(self.pre_factor * chi_try))
-            A, S, B = svd(theta, chi_try, full_matrices=False)
-            chivC = min(chi_max, np.sum(S > eps), chi_try)
-
-        chivC = min(chi_max, np.sum(S > eps))
-        print("Error Is", np.sum(S > eps), chi_try, S[chivC:] @ S[chivC:], chivC)
-        # keep the largest `chivC` singular values
-        piv = np.argsort(S)[::-1][:chivC]
-        A, S, B = A[:, piv], S[piv], B[piv, :]
-        S = S / np.linalg.norm(S)
-        # A: {vL*i, chivC} -> vL i vR=chivC
-        A = np.reshape(A, [chi_left_on_left, phys_left, chivC])
-        # B: {chivC, j*vR} -> vL==chivC j vR
-        B = np.reshape(B, [chivC, phys_right, chi_right_on_right])
-        # vL [vL'] * [vL] i vR -> vL i vR
-        A = np.tensordot(np.diag(self.S[i] ** (-1)), A, [1, 0])
-        # vL i [vR] * [vR] vR -> vL i vR
-        A = np.tensordot(A, np.diag(S), [2, 0])
-        self.S[i + 1] = S
-        self.B[i] = A
-        self.B[i + 1] = B
-
-    def update_on_body(self, h, i, dt):
-        U_site = calc_U(h, dt)
-        self.B[i] = einsum('ij,PjQ->PiQ', U_site, self.B[i])
-
-    def update_bond(self, i: int, chi_max: int, eps: float, swap):
-        theta = self.get_theta2(i)
-        U_bond = self.U[i]
-        # i j [i*] [j*], vL [i] [j] vR
-        print(theta.shape, U_bond.shape)
-        if swap==1:
-            print("swap: on")
-            Utheta = einsum('ijkl,PklQ->PjiQ', U_bond, theta)
-        elif swap==-1:
-            print("swap: off")
-            Utheta = np.transpose(theta,[0,2,1,3])
-        elif swap==0:
-            print("swap: off")
-            Utheta = einsum('ijkl,PklQ->PijQ', U_bond, theta)
-        else:
-            print(swap)
-            raise ValueError
-        self.split_truncate_theta(Utheta, i, chi_max, eps)
 
 
 class SpinBoson:
