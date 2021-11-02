@@ -127,14 +127,20 @@ class SpinBoson1D:
             print("w_A", w_A)
             chivC = np.sum(w_A > eps_LBO)
             piv = np.argsort(w_A)[::-1][:chivC]
+            # if len(w_A) !=3:
             self.R[i] = v_A.T.conj()[piv, :]
+            # else:
+                # self.R[i] = np.eye(3)
             print('A chivC', chivC)
             w_B, v_B = np.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
             print("w_B", w_B)
             chivC = np.sum(w_B > eps_LBO)
             print('B chivC', chivC)
             piv = np.argsort(w_B)[::-1][:chivC]
+            # if len(w_B) !=3:
             self.R[i+1] = v_B.T.conj()[piv, :]
+            # else:
+            # self.R[i + 1] = np.eye(3)
 
             theta = einsum('aIJb,IK,JL->aKLb', theta, self.R[i].T.conj(), self.R[i+1].T.conj())
 

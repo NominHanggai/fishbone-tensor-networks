@@ -194,7 +194,7 @@ class SpinBoson1D:
     def update_bond(self, i: int, chi_max: int, eps: float, swap, gpu=False):
         if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
-            u_bond = self.U[i]
+            d1, d2, u_bond = self.U[i]
             # i j [i*] [j*], vL [i] [j] vR
             print(theta.shape, u_bond.shape)
             if swap == 1:
