@@ -129,6 +129,6 @@ class SpinBoson:
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             # u = u.reshape([r0, s0, r1, s1])
-            U[i] = u.toarray().reshape([r0, s0, r1, s1])
+            U[i] = (d1, d2, u)
             print("Exponential", i, r0 * s0, r1 * s1)
         return U
