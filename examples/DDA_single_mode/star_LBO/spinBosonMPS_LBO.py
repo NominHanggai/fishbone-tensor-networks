@@ -125,7 +125,7 @@ class SpinBoson1D:
         if gpu is False or CUPY_SUCCESS is False:
             w_A, v_A = np.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
 
-            print(einsum('aIJb,aKJb->IK', theta, theta.conj())- einsum('aIJb,aKJb->IK', theta, theta.conj()).T.conj())
+            # print(einsum('aIJb,aKJb->IK', theta, theta.conj())- einsum('aIJb,aKJb->IK', theta, theta.conj()).T.conj())
             print("w_A", w_A)
             chivC = np.sum(w_A > eps_LBO)
             piv = np.argsort(w_A)[::-1][:chivC]
@@ -217,7 +217,7 @@ class SpinBoson1D:
             del B
             mempool.free_all_blocks()
 
-    def update_bond(self, i: int, chi_max: int, eps: float, eps_LBO: float, swap, toarray=True, gpu=False):
+    def update_bond(self, i: int, chi_max: int, eps: float, eps_LBO: float, swap, toarray=False, gpu=False):
         if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
             if toarray is True:
