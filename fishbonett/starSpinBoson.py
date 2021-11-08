@@ -254,14 +254,14 @@ class SpinBoson:
         print("Coupling Over")
         self.freq, self.coef = self.diag()
 
-    def get_u(self, t, dt, mode='normal'):
+    def get_u(self, t, dt, mode='normal', factor=1):
         hee = self.get_h2(t, dt)
         self.H = hee
         U1 = dcopy(self.H)
         U2 = dcopy(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h, 1)
+            u = calc_U(h/factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             u1 = u.reshape([r0, s0, r1, s1])
