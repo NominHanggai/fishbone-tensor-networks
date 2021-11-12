@@ -212,7 +212,7 @@ class SpinBoson:
         d2 = self.pd_spin
         site = delta*kron(np.eye(d1), self.h1e)
         if inc_sys is True:
-            h2[0] = (h2[0][0] + site, d1, d2)
+            h2[0] = (h2[-1][0] + site, d1, d2)
         else:
             pass
         h2 = h2[0:self.len_boson]
