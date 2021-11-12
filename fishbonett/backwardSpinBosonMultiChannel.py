@@ -201,7 +201,7 @@ class SpinBoson:
         print("Geting d's")
         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
         h2 = []
-        for i, k in enumerate(d_nt_mat[0:self.len_boson]):
+        for i, k in enumerate(d_nt_mat[-self.len_boson:]):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
