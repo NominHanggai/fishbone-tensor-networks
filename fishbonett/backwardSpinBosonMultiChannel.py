@@ -181,10 +181,7 @@ class SpinBoson:
         self.coup_mat = [mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat)]
         print("coup_mat", [mat[0, 0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
-        index = np.abs(self.freq).argsort()[::-1]
-        self.freq = self.freq[index]
-        # print(f"self.freq {self.freq}")
-        self.coup_mat_np = np.array(self.coup_mat)[index]
+        self.coup_mat_np = np.array(self.coup_mat)
         #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
         self.coef= []
@@ -201,8 +198,8 @@ class SpinBoson:
         print("Geting d's")
         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
         h2 = []
-        for i, k in enumerate(d_nt_mat[-self.len_boson:]):
-            d1 = self.pd_boson[-self.len_boson:][i]
+        for i, k in enumerate(d_nt_mat):
+            d1 = self.pd_boson[::-1][i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
@@ -212,11 +209,10 @@ class SpinBoson:
         d2 = self.pd_spin
         site = delta*kron(np.eye(d1), self.h1e)
         if inc_sys is True:
-            h2[0] = (h2[-1][0] + site, d1, d2)
+            h2[0] = (h2[0][0] + site, d1, d2)
         else:
             pass
-        h2 = h2[0:self.len_boson]
-        return h2
+        return h2[::-1]
 
     def build(self, n
               #g
