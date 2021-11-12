@@ -181,7 +181,7 @@ class SpinBoson:
         self.coup_mat = [mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat)]
         print("coup_mat", [mat[0, 0] for mat in self.coup_mat])
         self.size = self.coup_mat[0].shape[0]
-        index = self.freq.argsort()
+        index = np.abs(self.freq).argsort()[::-1]
         self.freq = self.freq[index]
         # print(f"self.freq {self.freq}")
         self.coup_mat_np = np.array(self.coup_mat)[index]
@@ -190,38 +190,6 @@ class SpinBoson:
         self.coef= []
         self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
         self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
-
-        # self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
-
-    def get_coupling(self, n, j, domain, g, ncap=20000):
-        alphaL, betaL = rc.recurrenceCoefficients(
-            n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
-        )
-        w_list = g * np.array(alphaL)
-        k_list = g * np.sqrt(np.array(betaL))
-        k_list[0] = k_list[0] / g
-        _, _, self.h_squared = rc._j_to_hsquared(func=j, lb=domain[0], rb=domain[1], g=g)
-        self.domain = domain
-        return w_list, k_list
-
-    def build_coupling(self, g, ncap):
-        n = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
-
-    # def get_dk(self, t,star=False):
-    #     freq = self.freq
-    #     coef = self.coef
-    #     e = self.phase_func
-    #     mat_list = self.coup_mat_np
-    #     print(mat_list.shape)
-    #     if star is False:
-    #         phase_factor = np.array([e(w, t) for w in freq])
-    #         print("Geting d's")
-    #         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
-    #         return np.array([mat[0,0] for mat in d_nt_mat])
-    #     else:
-    #         reorg = sum([mat_list[i, 0, 0] ** 2 / freq[i] for i in range(len(freq))])
-    #         return reorg
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
@@ -234,7 +202,7 @@ class SpinBoson:
         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
         h2 = []
         for i, k in enumerate(d_nt_mat[0:self.len_boson]):
-            d1 = self.pd_boson[::-1][i]
+            d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
@@ -248,7 +216,7 @@ class SpinBoson:
         else:
             pass
         h2 = h2[0:self.len_boson]
-        return h2[::-1]
+        return h2
 
     def build(self, n
               #g
