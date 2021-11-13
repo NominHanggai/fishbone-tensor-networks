@@ -170,7 +170,7 @@ if __name__ == '__main__':
     gamma = np.repeat(gamma, N)
     coup_mat = [x*np.diag([1, -1]) for x in gamma]
 
-    etn = SpinBoson(pd=pd, coup_mat=coup_mat, freq=freq, temp=300, betaOmega=0.02)
+    etn = SpinBoson(pd=pd, coup_mat=coup_mat, freq=freq, temp=300, betaOmega=0.04)
     from fishbonett.stuff import sigma_x
     from time import time
     etn.h1e = delta * sigma_x
