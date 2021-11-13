@@ -226,11 +226,12 @@ class SpinBoson:
             return tri_mat, coef
         # self.build_coupling(g, ncap)
         print("Coupling Over")
-        _, Q = tri_diag(self, n)
+        chain_freq, Q = tri_diag(self, n)
         res = np.diagonal(Q.T@Q-np.eye(Q.shape[0]))
         print('Lanczos Residual:', res@res)
         # print(repr(Q[:,0])) ## Should be parallel to one of the coup_mat vectors
         self.coef = Q
+        self.chain_freq = np.diagonal(chain_freq)
 
     def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
         self.H = self.get_h2(t, dt, inc_sys)

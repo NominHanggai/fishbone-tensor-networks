@@ -125,40 +125,6 @@ class SpinBoson:
         self.freq = self.freq[index]
         self.coup_mat_np = np.array(self.coup_mat)[index]
 
-    def get_coupling(self, n, j, domain, g, ncap=20000):
-        alphaL, betaL = rc.recurrenceCoefficients(
-            n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
-        )
-        w_list = g * np.array(alphaL)
-        k_list = g * np.sqrt(np.array(betaL))
-        k_list[0] = k_list[0] / g
-        _, _, self.h_squared = rc._j_to_hsquared(func=j, lb=domain[0], rb=domain[1], g=g)
-        self.domain = domain
-        return w_list, k_list
-
-    def build_coupling(self, g, ncap):
-        n = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
-
-    def poly(self):
-        k = self.k_list
-        w = self.w_list
-        pn_list = [0, 1/k[0]]
-        x = sympy.symbols("x")
-        for i in range(1, len(k)):
-            pi_1 = pn_list[i]
-            pi_2 = pn_list[i - 1]
-            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
-            pn_list.append(pi)
-        pn_list = pn_list[1:]
-        return [lambdify(x,pn) for pn in pn_list]
-
-    def diag(self):
-        w= self.w_list
-        k = self.k_list
-        self.coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
-        freq, coef = np.linalg.eig(self.coup)
-        return freq, coef 
 
     def get_h2(self, t, delta):
         print("Geting h2")
