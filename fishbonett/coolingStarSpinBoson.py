@@ -61,7 +61,7 @@ class SpinBoson:
                          enumerate(coup_mat + coup_mat)]
         index = np.abs(self.freq).argsort()[::-1]
         self.freq = self.freq[index]
-        self.heating_op = [scipy.linalg.expm(2*betaOmega/np.abs(self.freq[i])*self.freq[i] * _c(d).T @ _c(d)) for i, d in enumerate(self.pd_boson)]
+        self.heating_op = [scipy.linalg.expm(2*betaOmega*np.sign(self.freq[i]) * _c(d).T @ _c(d)) for i, d in enumerate(self.pd_boson)]
         self.heating_op = [op / np.linalg.norm(op) for op in self.heating_op]
         self.coup_mat_np = np.array(self.coup_mat)[index]
 
@@ -131,8 +131,8 @@ class SpinBoson:
             d2 = self.pd_spin
             c1 = _c(d1)
             w = freq[i]
-            annih = np.exp(self.betaOmega/np.abs(freq[i])*freq[i])
-            creat = np.exp(-1*self.betaOmega/np.abs(freq[i])*freq[i])
+            annih = np.exp(self.betaOmega*np.sign(freq[i]))
+            creat = np.exp(-1*self.betaOmega*np.sign(freq[i]))
             coup = np.kron(annih*c1 + creat*c1.T, mat)
             site = np.kron(w * c1.T @ c1, np.eye(d2))
             h2.append((delta * (coup + site), d1, d2))
@@ -160,26 +160,28 @@ class SpinBoson:
 
 if __name__ == '__main__':
     bath_length = 6
-    pd = [20]*bath_length +[2]
+    pd = [60]*bath_length +[2]
 
     N = 3
-    SB = 10
+    SB = 20
     delta = 0.08679 / 2 * 8065.540106923572
     freq = np.linspace(0.08679, 0.09919, N) * 8065.540106923572
     gamma = np.sqrt((delta * SB / 4) / np.sum(1 / freq))
     gamma = np.repeat(gamma, N)
     coup_mat = [x*np.diag([1, -1]) for x in gamma]
 
-    etn = SpinBoson(pd=pd, coup_mat=coup_mat, freq=freq, temp=300, betaOmega=0.5)
+    etn = SpinBoson(pd=pd, coup_mat=coup_mat, freq=freq, temp=300, betaOmega=0.02)
     from fishbonett.stuff import sigma_x
+    from time import time
     etn.h1e = delta * sigma_x
-    threshold = 1e-5
+    threshold = 1e-3
     bond_dim = 10000
     dt = 0.001 / 5
     num_steps = 95
 
     p = []
     U1, U2 = etn.get_u(dt)
+    t0 = time()
     for tn in range(num_steps):
         etn.U = U1
         for j in range(bath_length - 1, 0, -1):
@@ -197,7 +199,8 @@ if __name__ == '__main__':
         rho = etn.get_rdm()
         rho = rho/np.trace(rho)
         p = p + [np.abs(rho[0, 0])]
-
+    t1 = time()
+    print(t1-t0)
     pop = [x for x in p]
     print("population", pop)
 
