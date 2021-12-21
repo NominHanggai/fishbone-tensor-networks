@@ -504,9 +504,7 @@ class SpinBoson:
     def build(self, g, ncap=20000):
         self.build_coupling(g, ncap)
         print("Coupling Over")
-        hee = self.get_h2()
-        print("Hamiltonian Over")
-        self.H = hee
+
 
     def get_u(self, dt):
         U = [0]*len(self.H)

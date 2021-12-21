@@ -1,11 +1,11 @@
 import numpy as np
 
 from scipy.linalg import svd as csvd
+from scipy.linalg import expm
 from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
-import sympy
 import scipy
 import fishbonett.recurrence_coefficients as rc
 from fishbonett.stuff import temp_factor
@@ -37,7 +37,7 @@ def calc_U(H, dt):
 
 
 class SpinBoson:
-    def __init__(self, pd, betaOmega=2.):
+    def __init__(self, pd, sigma=2.):
         def g_state(dim):
             tensor = np.zeros(dim)
             tensor[(0,) * len(dim)] = 1.
@@ -49,7 +49,7 @@ class SpinBoson:
         self.S = [np.ones([1]) for _ in pd]
         self.U = [np.zeros(0) for _ in pd[1:]]
         self.H = [np.zeros(0) for _ in pd[1:]]
-        self.betaOmega = betaOmega
+        self.sigma = sigma
 
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
@@ -61,12 +61,12 @@ class SpinBoson:
         self.k_list = []
         self.w_lsit = []
         self.H = []
-        self.coef= []
-        self.freq = []
-        self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
-        self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
-
-
+        self.nt = [0] * self.len_boson
+        self.D_nt = [0] * self.len_boson
+        self._num_op = [_c(N).T@_c(N) for N in self.pd_boson]
+        self.recover = lambda i, nt, s: expm(np.linalg.matrix_power(self._num_op[i] - nt*np.eye(self.pd_boson[i]), 2)/s**2)
+        self.recovery_op = [self.recover(i, nt, self.sigma) for i, nt in enumerate(self.nt)]
+        self.recovery_op = [r / np.linalg.norm(r) for r in self.recovery_op]
 
     def get_theta1(self, i: int):
         return np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
@@ -76,13 +76,17 @@ class SpinBoson:
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
     def get_rdm(self):
-        theta = self.get_theta1(0)
-        rho = einsum('PiQ,ij,PjL->QL', theta, self.heating_op[0], theta.conj())
+        heating_op = self.recovery_op
+        theta = einsum('PiQ,ij->PjQ', self.get_theta1(0), heating_op[0])
+        theta = theta / np.linalg.norm(theta)
+        rho = einsum('PiQ,PiL->QL', theta, theta.conj())
+        rho = rho / np.trace(rho)
         for i in range(1, self.len_boson):
-            rho = einsum('PQ, PiK, ij, QjL->KL', rho, self.B[i], self.heating_op[i], self.B[i].conj())
-            rho = rho/einsum('KK', rho)
+            B = einsum('PiQ,ij->PjQ', self.B[i], heating_op[i])
+            rho = einsum('PQ, PiK, QiL->KL', rho, B, B.conj())
+            rho = rho / einsum('KK', rho)
         rho = einsum('PQ,PiL,QjL->ij', rho, self.B[-1], self.B[-1].conj())
-        return rho
+        return rho/np.trace(rho)
 
     def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float):
         (chi_left_on_left, phys_left,
@@ -125,6 +129,18 @@ class SpinBoson:
             raise ValueError
         self.split_truncate_theta(Utheta, i, chi_max, eps)
 
+    def update_nt(self, dt):
+        for i in range(self.len_boson):
+            psi = einsum('iPj,PQ->iQj', self.get_theta1(i), self.recovery_op[i])
+            psi = psi / np.linalg.norm(psi)
+            rho = einsum('iPj,iQj->PQ', psi, psi.conj())
+            nt = einsum('PQ,QP', rho, self._num_op[i])
+            D_nt = (nt - self.nt[i])/dt
+            op = self.recover(i, nt, self.sigma)
+            self.nt[i] = nt
+            self.D_nt[i] = D_nt
+            self.recovery_op[i] = op / np.linalg.norm(op)
+
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
             n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
@@ -140,7 +156,7 @@ class SpinBoson:
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
     def diag(self):
-        w= self.w_list
+        w = self.w_list
         k = self.k_list
         coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
         freq, coef = np.linalg.eigh(coup)
@@ -152,44 +168,38 @@ class SpinBoson:
         self.build_coupling(g, ncap)
         print("Coupling Over")
         self.freq, self.coef = self.diag()
-        self.heating_op = [scipy.linalg.expm(2 * self.betaOmega # * np.sign(freq[i])
-                                             * _c(d).T @ _c(d)) for i, d in
-                           enumerate(self.pd_boson)]
-        self.heating_op = [op / np.linalg.norm(op) for op in self.heating_op]
 
     def get_h2(self, delta):
         print("Geting h2")
         freq = self.freq
         coef = self.coef
-        e = self.phase
         k0 = self.k_list[0]
-        j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
+        j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
         print("Geting d's")
         # Permutation
         indexes = np.abs(freq).argsort()
-        freq = freq[indexes]
-        j0 = j0[indexes]
-        # END Permutation
-        d_nt = j0
-        d_nt = d_nt[::-1]
-        freq = freq[::-1]
+        freq = freq[indexes][::-1]
+        j0 = j0[indexes][::-1]
         h2 = []
-        for i, k in enumerate(d_nt):
+        s = self.sigma
+        for i, k in enumerate(j0):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
+            n = c1.T@c1
             kc = k.conjugate()
-            print(f'k {k}; kc {kc}')
             f = freq[i]
-            annih = np.exp(self.betaOmega)
-            creat = np.exp(-1 * self.betaOmega)
-            print(f'annih {annih}; creat {creat}')
-            coup = np.kron(k * annih * c1 + kc * creat * c1.T, self.he_dy)
-            site = np.kron(f*c1.T@c1, np.eye(d2))
-            h2.append((delta*(coup+site), d1, d2))
+            # cooling parameters
+            nt = self.nt[i]
+            D_nt = self.D_nt[i]
+            B_dy = k * c1 @ expm(-1 * (-2*n + np.eye(d1)) / s**2) * np.exp(-2*nt/s**2) \
+                   + kc * c1.T @ expm(-1 * ( 2*n + np.eye(d1)) / s**2) * np.exp(2*nt/s**2)
+            coup = np.kron(B_dy, self.he_dy)
+            site = np.kron(f * n + 2j * (n - nt*np.eye(d1)) * D_nt / s**2, np.eye(d2))
+            h2.append((delta * (coup + site), d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*np.kron(np.eye(d1), self.h1e)
+        site = delta * np.kron(np.eye(d1), self.h1e)
         h2[-1] = (h2[-1][0] + site, d1, d2)
         return h2
 
@@ -204,30 +214,32 @@ class SpinBoson:
             s0 = s1 = d2  # physical dimension for site B
             # print(u)
             u1 = u.reshape([r0, s0, r1, s1])
-            u2 = np.transpose(u1, [1,0,3,2])
+            u2 = np.transpose(u1, [1, 0, 3, 2])
             U1[i] = u1
             U2[i] = u2
             print("Exponential", i, r0 * s0, r1 * s1)
         return U1, U2
 
+
 if __name__ == '__main__':
     from fishbonett.stuff import drude, entang, sigma_z, sigma_x
+
     bath_length = 200
-    phys_dim = 120
-    threshold = 0
+    phys_dim = 20
+    threshold = 1e-3
     coup = 4.0
-    bond_dim = 60
+    bond_dim = 600
     tmp = 2.0
     bath_freq = 1.0
 
     pd = [phys_dim] * bath_length + [2]
-    bo = 1
-    etn = SpinBoson(pd=pd, betaOmega=bo)
+    etn = SpinBoson(pd=pd, sigma=15)
     g = 500 + bath_freq * 5000
     etn.domain = [-g, g]
     temp = 226.00253972894595 * 0.5 * tmp
 
-    j = lambda w: drude(w, lam=coup * 78.53981499999999 / 2, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j = lambda w: drude(w, lam=coup * 78.53981499999999 / 2, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,
+                                                                                                                   w)
     etn.sd = j
     etn.he_dy = sigma_z
     etn.h1e = (78.53981499999999) * sigma_x
@@ -244,9 +256,10 @@ if __name__ == '__main__':
 
     from time import time
 
-    U1, U2 = etn.get_u(dt)
+
 
     for tn in range(num_steps):
+        U1, U2 = etn.get_u(dt)
         t0 = time()
         etn.U = U1
         for j in range(bath_length - 1, 0, -1):
@@ -261,6 +274,8 @@ if __name__ == '__main__':
             print("j==", j, tn)
             etn.update_bond(j, bond_dim, threshold, swap=1)
 
+        etn.update_nt(2*dt)
+
         theta = etn.get_theta1(bath_length)  # c.shape vL i vR
         rho1 = etn.get_rdm()
         rho2 = np.einsum('LiR,LjR->ij', theta, theta.conj())
@@ -268,7 +283,6 @@ if __name__ == '__main__':
         pop2 = np.einsum('ij,ji', rho2, sigma_z)
         p1 = p1 + [pop1]
         p2 = p2 + [pop2]
-
 
         dim = [len(s) for s in etn.S]
         ent = [entang(s) for s in etn.S]
@@ -282,5 +296,3 @@ if __name__ == '__main__':
     # p.astype('float32').tofile(f'./output/pop_cooling_BO{bo}.dat')
     # s_dim.astype('float32').tofile(f'./output/sDim_cooling_BO{bo}.dat')
     # s_ent.astype('float32').tofile(f'./output/entropy_cooling_BO{bo}.dat')
-
-

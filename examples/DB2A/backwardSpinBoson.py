@@ -1,20 +1,15 @@
 import numpy as np
 
 from scipy.linalg import svd as csvd
-from scipy.linalg import expm
 from fishbonett.fbpca import pca as rsvd
 from opt_einsum import contract as einsum
-from scipy.sparse.linalg import expm as sparseExpm
-from scipy.sparse import csc_matrix
 from numpy import exp
-import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
-import scipy.integrate as integrate
-import sympy
 import scipy
-from sympy.utilities.lambdify import lambdify
 from fishbonett.stuff import drude, temp_factor, _c
+from fishbonett.legendre_discretization import get_Vn_squared
+from fishbonett.lanczos import lanczos
 
 
 def eye(d):
@@ -65,149 +60,153 @@ def calc_U(H, dt):
 
 class SpinBoson:
 
-    def __init__(self, pd):
+    def __init__(self, pd, h1e, he_dy, sd, domain):
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
-        self.sd = lambda x: np.heaviside(x, 1) / 1. * exp(-x / 1)
-        self.domain = [0, 1]
-        self.he_dy = np.eye(self.pd_spin)
-        self.h1e = np.eye(self.pd_spin)
-        self.k_list = []
-        self.w_lsit = []
-        self.H = []
-        self.coef= []
-        self.freq = []
-        self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
-        self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
-        # self.phase = lambda lam, t, delta: np.exp(-1j * lam * (t+delta/2)) * delta
-
-    def get_coupling(self, n, j, domain, g, ncap=20000):
-        alphaL, betaL = rc.recurrenceCoefficients(
-            n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
-        )
-        w_list = g * np.array(alphaL)
-        k_list = g * np.sqrt(np.array(betaL))
-        k_list[0] = k_list[0] / g
-        _, _, self.h_squared = rc._j_to_hsquared(func=j, lb=domain[0], rb=domain[1], g=g)
         self.domain = domain
-        return w_list, k_list
-
-    def build_coupling(self, g, ncap):
-        n = len(self.pd_boson)
-        self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
-
-    def poly(self):
-        k = self.k_list
-        w = self.w_list
-        pn_list = [0, 1/k[0]]
-        x = sympy.symbols("x")
-        for i in range(1, len(k)):
-            pi_1 = pn_list[i]
-            pi_2 = pn_list[i - 1]
-            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
-            pn_list.append(pi)
-        pn_list = pn_list[1:]
-        return [lambdify(x,pn) for pn in pn_list]
-
-    def diag(self):
-        w= self.w_list
-        k = self.k_list
-        self.coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
-        freq, coef = np.linalg.eigh(self.coup)
-        sign = np.sign(coef[0,:])
-        coef = coef.dot(np.diag(sign))
-        return freq, coef
-
-    def get_dk(self, t, star=False):
-        freq = self.freq
-        coef = self.coef
-        e = self.phase_func
-        k0 = self.k_list[0]
-        j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
-        if star:
-            indexes = freq.argsort()
-            freq = freq[indexes]
-            j0 = j0[indexes]
-            reorg = sum([j0[i]**2/ freq[i] for i in range(len(j0))])
-            return j0, freq, coef, reorg
-        else:
-            phase_factor = np.array([e(w, t) for w in freq])
-            print("Geting d's")
-            j = lambda w: np.pi*4*drude(w, lam=4.0*78.53981499999999/2, gam=0.25*4*19.634953749999998
-                                  ) * temp_factor(226.00253972894595*0.5*1,w)
-            g=1
-            def h_squared(x):
-                return j(g * x) * g / np.pi
-            j_list = np.array([np.sqrt(h_squared(x)) for x in freq])
-            # print(freq)
-            # print(j_list)
-            # print(j0)
-            perm = np.abs(j0).argsort()
-            shuffle = coef.T
-            d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            # d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt = d_nt #+ d_nt_p
-            # print(f'd_nt{d_nt}')
-            d_nt = d_nt[::-1]
-            return d_nt
+        self.he_dy = he_dy
+        self.h1e = h1e
+        # BEGIN discretization
+        Vn = []
+        coef = []
+        for i, j in enumerate(sd):
+            w_list, V_list = get_Vn_squared(J=j, n=self.len_boson, domain=self.domain, ncap=20000)
+            V_list = np.sqrt(V_list/np.pi)
+            _, P = lanczos(np.diag(w_list), V_list)
+            sign = np.sign(P[0, :])
+            P = P.dot(np.diag(sign))
+            Vn.append(V_list)
+            coef.append(P)
+        self.freq = w_list
+        self.Vn = np.array(Vn)
+        self.coef = coef
+        # END discretization
+        self.phase = lambda lam, t, delta: (np.exp(-1j * lam * (t + delta)) - np.exp(-1j * lam * t)) / (-1j * lam)
+        # self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")
         freq = self.freq
-        coef = self.coef
         e = self.phase
-        k0 = self.k_list[0]
-        j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
+        Vn = self.Vn
         phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        perm = np.abs(j0).argsort()
-        shuffle = coef.T#[perm]
-        d_nt = [einsum('k,k,k', j0, shuffle[:,n], phase_factor) for n in range(len(freq))]
-        # print(f'd_nt{d_nt}')
+        coef = np.array(self.coef)
+        d_nt = [einsum('ik,k,k->i', Vn, coef[0, :, n], phase_factor) for n in range(len(freq)) ]
         d_nt = d_nt[::-1]
         h2 = []
-        # ul = calc_U(self.h1e, -t)
-        # he_dy = ul @ self.he_dy @ (ul.T.conj())
         he_dy = self.he_dy
-        for i, k in enumerate(d_nt):
+        for i, dt in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
-            kc = k.conjugate()
-            coup = kron(k*c1 + kc* c1.T, he_dy)
+            dtc = np.array(dt).conj()
+            coup = 0
+            for j, dy in enumerate(he_dy):
+                a = dt[j] * c1 + dtc[j] * c1.T
+                coup += kron(dt[j] * c1 + dtc[j] * c1.T, dy)
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*kron(np.eye(d1), self.h1e)
+        site = delta * kron(np.eye(d1), self.h1e)
         if inc_sys is True:
+            print(h2[-1][0].shape, site.shape)
             h2[-1] = (h2[-1][0] + site, d1, d2)
         else:
             h2[-1] = (h2[-1][0], d1, d2)
         return h2
 
-    def build(self, g, ncap=20000):
-        self.build_coupling(g, ncap)
-        print("Coupling Over")
-        self.freq, self.coef = self.diag()
-        # self.pn_list = self.poly()
-        # hee = self.get_h2(t)
-        # print("Hamiltonian Over")
-        # self.H = hee
-
     def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
-        self.H = self.get_h2(t, dt, inc_sys)
-        U1 = dcopy(self.H)
+        H = self.get_h2(t, dt, inc_sys)
+        U1 = dcopy(H)
         U2 = dcopy(U1)
-        for i, h_d1_d2 in enumerate(self.H):
+        for i, h_d1_d2 in enumerate(H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray()/factor, 1)
+            u = calc_U(h.toarray() / factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             # print(u)
             u1 = u.reshape([r0, s0, r1, s1])
-            u2 = np.transpose(u1, [1,0,3,2])
+            u2 = np.transpose(u1, [1, 0, 3, 2])
             U1[i] = u1
             U2[i] = u2
             print("Exponential", i, r0 * s0, r1 * s1)
         return U1, U2
+
+
+if __name__ == '__main__':
+    import numpy as np
+    from backwardSpinBoson import SpinBoson
+    from fishbonett.spinBosonMPS import SpinBoson1D
+    from fishbonett.stuff import sigma_x, sigma_z, temp_factor, drude, lorentzian
+    from time import time
+    import sys
+
+    bath_length = 200
+    phys_dim = 20
+    threshold = 1e-3
+    coup = 4
+    bond_dim = 1000
+    tmp = 2
+    bath_freq = 4
+
+    a = [phys_dim] * bath_length
+
+    pd = a[::-1] + [2]
+
+    g = 500 #+ bath_freq * 500
+
+    temp = 226.00253972894595 * 0.5 * tmp
+    j1 = lambda w: drude(w, lam=coup * 78.539815, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    #lambda w: lorentzian(1, w, coup * 78.539815, omega=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j2 = lambda w: drude(w, lam=coup * 78.539815, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+
+    eth = SpinBoson(pd, h1e=100*sigma_z, he_dy=[1*sigma_z, 1*sigma_x], sd=[j1, j2], domain=[-g, g])
+    # print(eth.Vn)
+    # exit()
+    etn = SpinBoson1D(pd)
+    etn.B[-1][0, 1, 0] = 0
+    etn.B[-1][0, 0, 0] = 1
+
+    dt = 0.001 / 1 / 2
+    num_steps = 100 * 1 * 3
+
+    p = []
+
+    t = 0.
+    for tn in range(num_steps):
+        U1, U2 = eth.get_u(2 * tn * dt, 2 * dt, mode='normal', factor=2)
+
+        t0 = time()
+        etn.U = U1
+        for j in range(bath_length - 1, 0, -1):
+            print("j==", j, tn)
+            etn.update_bond(j, bond_dim, threshold, swap=1)
+
+        etn.update_bond(0, bond_dim, threshold, swap=0)
+        etn.update_bond(0, bond_dim, threshold, swap=0)
+        t1 = time()
+        t = t + t1 - t0
+
+        # U1, U2 = eth.get_u((2*tn+1) * dt, dt, mode='reverse')
+
+        t0 = time()
+        etn.U = U2
+        for j in range(1, bath_length):
+            print("j==", j, tn)
+            etn.update_bond(j, bond_dim, threshold, swap=1)
+
+        theta = etn.get_theta1(bath_length)  # c.shape vL i vR
+        rho = np.einsum('LiR,LjR->ij', theta, theta.conj())
+        pop = np.einsum('ij,ji', rho, sigma_z)
+        p = p + [pop]
+
+        t1 = time()
+        t = t + t1 - t0
+
+    # t1 = time()
+    pop = [x.real for x in p]
+    print("population", pop)
+    print(t)
+    pop = np.array(pop)

@@ -97,19 +97,6 @@ class SpinBoson:
         n = len(self.pd_boson)
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
-    def poly(self):
-        k = self.k_list
-        w = self.w_list
-        pn_list = [0, 1/k[0]]
-        x = sympy.symbols("x")
-        for i in range(1, len(k)):
-            pi_1 = pn_list[i]
-            pi_2 = pn_list[i - 1]
-            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
-            pn_list.append(pi)
-        pn_list = pn_list[1:]
-        return [lambdify(x,pn) for pn in pn_list]
-
     def diag(self):
         w= self.w_list
         k = self.k_list
@@ -118,39 +105,6 @@ class SpinBoson:
         sign = np.sign(coef[0,:])
         coef = coef.dot(np.diag(sign))
         return freq, coef
-
-    def get_dk(self, t, star=False):
-        freq = self.freq
-        coef = self.coef
-        e = self.phase_func
-        k0 = self.k_list[0]
-        j0 = k0 * coef[0, :]  # interaction strength in the diagonal representation
-        if star:
-            indexes = freq.argsort()
-            freq = freq[indexes]
-            j0 = j0[indexes]
-            reorg = sum([j0[i]**2/ freq[i] for i in range(len(j0))])
-            return j0, freq, coef, reorg
-        else:
-            phase_factor = np.array([e(w, t) for w in freq])
-            print("Geting d's")
-            j = lambda w: np.pi*4*drude(w, lam=4.0*78.53981499999999/2, gam=0.25*4*19.634953749999998
-                                  ) * temp_factor(226.00253972894595*0.5*1,w)
-            g=1
-            def h_squared(x):
-                return j(g * x) * g / np.pi
-            j_list = np.array([np.sqrt(h_squared(x)) for x in freq])
-            # print(freq)
-            # print(j_list)
-            # print(j0)
-            perm = np.abs(j0).argsort()
-            shuffle = coef.T
-            d_nt = [einsum('k,k,k', j0, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            # d_nt_p = [einsum('k,k,k', j_list, shuffle[:, n], phase_factor) for n in range(len(freq))]
-            d_nt = d_nt #+ d_nt_p
-            # print(f'd_nt{d_nt}')
-            d_nt = d_nt[::-1]
-            return d_nt
 
     def get_h2(self, t, delta, inc_sys=True):
         print("Geting h2")

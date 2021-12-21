@@ -152,55 +152,54 @@ class SpinBoson:
         self.build_coupling(g, ncap)
         print("Coupling Over")
         self.freq, self.coef = self.diag()
-        freq = self.freq[::-1]
         self.heating_op = [scipy.linalg.expm(2 * self.betaOmega # * np.sign(freq[i])
                                              * _c(d).T @ _c(d)) for i, d in
                            enumerate(self.pd_boson)]
         self.heating_op = [op / np.linalg.norm(op) for op in self.heating_op]
 
-    def get_h2(self, t, delta, inc_sys=True):
+    def get_h2(self, delta):
         print("Geting h2")
         freq = self.freq
         coef = self.coef
         e = self.phase
         k0 = self.k_list[0]
         j0 = k0 * coef[0,:] # interaction strength in the diagonal representation
-        phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Geting d's")
-        perm = np.abs(j0).argsort()
-        shuffle = coef.T#[perm]
-        d_nt = [einsum('k,k,k', j0, shuffle[:,n], phase_factor) for n in range(len(freq))]
-        # print(f'd_nt{d_nt}')
+        # Permutation
+        indexes = np.abs(freq).argsort()
+        freq = freq[indexes]
+        j0 = j0[indexes]
+        # END Permutation
+        d_nt = j0
         d_nt = d_nt[::-1]
+        freq = freq[::-1]
         h2 = []
-        # ul = calc_U(self.h1e, -t)
-        # he_dy = ul @ self.he_dy @ (ul.T.conj())
-        he_dy = self.he_dy
         for i, k in enumerate(d_nt):
             d1 = self.pd_boson[i]
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
-            annih = np.exp(self.betaOmega)#*np.sign(self.freq[::-1][i]))
-            creat = np.exp(-1 * self.betaOmega)#*np.sign(self.freq[::-1][i]))
-            coup = kron(k*c1*annih + kc * c1.T*creat, he_dy)
-            h2.append((coup, d1, d2))
+            print(f'k {k}; kc {kc}')
+            f = freq[i]
+            annih = np.exp(self.betaOmega)
+            creat = np.exp(-1 * self.betaOmega)
+            print(f'annih {annih}; creat {creat}')
+            coup = np.kron(k * annih * c1 + kc * creat * c1.T, self.he_dy)
+            site = np.kron(f*c1.T@c1, np.eye(d2))
+            h2.append((delta*(coup+site), d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*kron(np.eye(d1), self.h1e)
-        if inc_sys is True:
-            h2[-1] = (h2[-1][0] + site, d1, d2)
-        else:
-            h2[-1] = (h2[-1][0], d1, d2)
+        site = delta*np.kron(np.eye(d1), self.h1e)
+        h2[-1] = (h2[-1][0] + site, d1, d2)
         return h2
 
-    def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
-        self.H = self.get_h2(t, dt, inc_sys)
+    def get_u(self, dt):
+        self.H = self.get_h2(dt)
         U1 = dcopy(self.H)
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray()/factor, 1)
+            u = calc_U(h, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             # print(u)
@@ -215,15 +214,16 @@ if __name__ == '__main__':
     from fishbonett.stuff import drude, entang, sigma_z, sigma_x
     bath_length = 200
     phys_dim = 20
-    threshold = 1e-4
+    threshold = 1e-3
     coup = 4.0
     bond_dim = 1000
     tmp = 2.0
     bath_freq = 1.0
 
     pd = [phys_dim] * bath_length + [2]
-    etn = SpinBoson(pd=pd, betaOmega=0.2)
-    g = 500 + bath_freq * 500
+    bo = 0
+    etn = SpinBoson(pd=pd, betaOmega=bo)
+    g = 500 + bath_freq * 5000
     etn.domain = [-g, g]
     temp = 226.00253972894595 * 0.5 * tmp
 
@@ -235,15 +235,18 @@ if __name__ == '__main__':
     etn.build(g=1, ncap=20000)
 
     dt = 0.001 / int(np.ceil(bath_freq)) / 10
-    num_steps = 100 * int(np.ceil(bath_freq)) * 5
+    num_steps = 100 * int(np.ceil(bath_freq))  *2
 
-    p = []
+    p1 = []
+    p2 = []
+    s_dim = np.empty([0, 0])
+    s_ent = np.empty([0, 0])
 
     from time import time
 
-    for tn in range(num_steps):
-        U1, U2 = etn.get_u(2 * tn * dt, 2 * dt, mode='normal', factor=2)
+    U1, U2 = etn.get_u(dt)
 
+    for tn in range(num_steps):
         t0 = time()
         etn.U = U1
         for j in range(bath_length - 1, 0, -1):
@@ -253,20 +256,31 @@ if __name__ == '__main__':
         etn.update_bond(0, bond_dim, threshold, swap=0)
         etn.update_bond(0, bond_dim, threshold, swap=0)
 
-        # U1, U2 = eth.get_u((2*tn+1) * dt, dt, mode='reverse')
-
         etn.U = U2
         for j in range(1, bath_length):
             print("j==", j, tn)
             etn.update_bond(j, bond_dim, threshold, swap=1)
 
         theta = etn.get_theta1(bath_length)  # c.shape vL i vR
-        rho = etn.get_rdm()
-        # rho = np.einsum('LiR,LjR->ij', theta, theta.conj())
-        pop = np.einsum('ij,ji', rho, sigma_z)
-        p = p + [pop]
+        rho1 = etn.get_rdm()
+        rho2 = np.einsum('LiR,LjR->ij', theta, theta.conj())
+        pop1 = np.einsum('ij,ji', rho1, sigma_z)
+        pop2 = np.einsum('ij,ji', rho2, sigma_z)
+        p1 = p1 + [pop1]
+        p2 = p2 + [pop2]
 
-    pop = [x.real for x in p]
-    print("population", pop)
+
+        dim = [len(s) for s in etn.S]
+        ent = [entang(s) for s in etn.S]
+        s_dim = np.append(s_dim, dim)
+        s_ent = np.append(s_ent, ent)
+
+    pop1 = [x.real for x in p1]
+    pop2 = [x.real for x in p2]
+    print("getRDM", pop1)
+    print("noGetRDM", pop2)
+    # p.astype('float32').tofile(f'./output/pop_cooling_BO{bo}.dat')
+    # s_dim.astype('float32').tofile(f'./output/sDim_cooling_BO{bo}.dat')
+    # s_ent.astype('float32').tofile(f'./output/entropy_cooling_BO{bo}.dat')
 
 

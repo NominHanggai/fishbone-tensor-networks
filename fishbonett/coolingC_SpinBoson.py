@@ -174,15 +174,15 @@ class SpinBoson:
             d2 = self.pd_boson[i + 1]
             c1 = _c(d1)
             c2 = _c(d2)
-            annih = np.exp(self.betaOmega)#*np.sign(self.freq[::-1][i]))
-            creat = np.exp(-1 * self.betaOmega)#*np.sign(self.freq[::-1][i]))
-            coup = k * (creat*kron(c1.T, c2) + annih*kron(c1, c2.T))
+            coup = k * (kron(c1.T, c2) + kron(c1, c2.T))
             site = kron(h1[i], np.eye(d2))
             h2.append((coup + site, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
+        annih = np.exp(self.betaOmega)  # *np.sign(self.freq[::-1][i]))
+        creat = np.exp(-1 * self.betaOmega)  # *np.sign(self.freq[::-1][i]))
         c0 = _c(d1)
-        coup = k0 * kron(c0 + c0.T, self.he_dy)
+        coup = k0 * kron(annih*c0 + creat*c0.T, self.he_dy)
         site = kron(h1[-2], np.eye(d2)) + kron(np.eye(d1), h1[-1])
         h20 = coup + site
         h2.append((h20, d1, d2))
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     bath_freq = 1.0
 
     pd = [phys_dim] * bath_length + [2]
-    bo = 0.0001
+    bo = 0.2
     etn = SpinBoson(pd=pd, betaOmega=bo)
     g = 500 + bath_freq * 500
     etn.domain = [-g, g]
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     etn.build(g=1, ncap=20000)
 
     dt = 0.001 / int(np.ceil(bath_freq)) / 10
-    num_steps = 100 * int(np.ceil(bath_freq)) * 5
+    num_steps = 100 * int(np.ceil(bath_freq)) * 2
 
     p = []
     s_dim = np.empty([0,0])

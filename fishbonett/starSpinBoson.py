@@ -197,19 +197,6 @@ class SpinBoson:
         n = len(self.pd_boson)
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
-    def poly(self):
-        k = self.k_list
-        w = self.w_list
-        pn_list = [0, 1/k[0]]
-        x = sympy.symbols("x")
-        for i in range(1, len(k)):
-            pi_1 = pn_list[i]
-            pi_2 = pn_list[i - 1]
-            pi = ((1 / k[i] * x - w[i - 1] / k[i]) * pi_1 - k[i - 1] / k[i] * pi_2).expand()
-            pn_list.append(pi)
-        pn_list = pn_list[1:]
-        return [lambdify(x,pn) for pn in pn_list]
-
     def diag(self):
         w= self.w_list
         k = self.k_list
