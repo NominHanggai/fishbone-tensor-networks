@@ -8,7 +8,7 @@ from scipy.sparse import kron as skron
 import sympy
 import scipy
 import fishbonett.recurrence_coefficients as rc
-from fishbonett.stuff import temp_factor
+from fishbonett.stuff import temp_factor, sigma_z
 
 
 def _c(dim: int):
@@ -76,13 +76,11 @@ class SpinBoson:
         return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
     def get_rdm(self):
-        theta = self.get_theta1(0)
-        rho = einsum('PiQ,ij,PjL->QL', theta, self.heating_op[0], theta.conj())
-        for i in range(1, self.len_boson):
-            rho = einsum('PQ, PiK, ij, QjL->KL', rho, self.B[i], self.heating_op[i], self.B[i].conj())
-            rho = rho/einsum('KK', rho)
-        rho = einsum('PQ,PiL,QjL->ij', rho, self.B[-1], self.B[-1].conj())
-        return rho
+        theta = self.get_theta1(self.len_boson)
+        # theta = einsum('ij,PjQ->PiQ', self.heating_op, theta)
+        # rho = einsum('PiQ,PjQ->ij', theta, theta.conj())
+        rho = einsum('PiQ, ij, kl, PlQ->jk', theta, self.heating_op, self.heating_op, theta.conj())
+        return rho/np.trace(rho)
 
     def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float):
         (chi_left_on_left, phys_left,
@@ -152,8 +150,8 @@ class SpinBoson:
         self.build_coupling(g, ncap)
         print("Coupling Over")
         self.freq, self.coef = self.diag()
-        self.heating_op = [np.linalg.matrix_power(_c(d).T @ _c(d) + self.betaOmega*np.eye(d), 2) for i, d in enumerate(self.pd_boson)]
-        self.heating_op = [op / np.linalg.norm(op) for op in self.heating_op]
+        op = scipy.linalg.expm(-1* sigma_z * self.betaOmega)
+        self.heating_op = op / np.linalg.norm(op)
 
     def get_h2(self, delta):
         print("Geting h2")
@@ -177,16 +175,16 @@ class SpinBoson:
             d2 = self.pd_spin
             c1 = _c(d1)
             kc = k.conjugate()
+            print(f'k {k}; kc {kc}')
             f = freq[i]
-            num_beta_inv = np.linalg.inv(c1.T@c1 + self.betaOmega * np.eye(d1))
-            num_beta_P1 = c1.T@c1 + (self.betaOmega + 1) * np.eye(d1)
-            num_beta_M1 = c1.T@c1 + (self.betaOmega - 1) * np.eye(d1)
-            sb_coup = np.kron(k * num_beta_inv@num_beta_P1@c1 + kc * num_beta_inv@num_beta_M1@c1.T, self.he_dy)
+            coup = np.kron(k  * c1 + kc * c1.T, self.he_dy)
             site = np.kron(f*c1.T@c1, np.eye(d2))
-            h2.append((delta*(sb_coup+site), d1, d2))
+            h2.append((delta*(coup+site), d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*np.kron(np.eye(d1), self.h1e)
+
+        h1e = scipy.linalg.expm(self.betaOmega * sigma_z) @ self.h1e @ scipy.linalg.expm(-self.betaOmega*sigma_z)
+        site = delta*np.kron(np.eye(d1), h1e)
         h2[-1] = (h2[-1][0] + site, d1, d2)
         return h2
 
@@ -210,7 +208,7 @@ class SpinBoson:
 if __name__ == '__main__':
     from fishbonett.stuff import drude, entang, sigma_z, sigma_x
     bath_length = 200
-    phys_dim = 40
+    phys_dim = 20
     threshold = 1e-4
     coup = 4.0
     bond_dim = 1000
@@ -218,9 +216,9 @@ if __name__ == '__main__':
     bath_freq = 1.0
 
     pd = [phys_dim] * bath_length + [2]
-    bo = 2
+    bo = 0
     etn = SpinBoson(pd=pd, betaOmega=bo)
-    g = 500 + bath_freq * 500
+    g = 500 + bath_freq * 5000
     etn.domain = [-g, g]
     temp = 226.00253972894595 * 0.5 * tmp
 
@@ -232,7 +230,7 @@ if __name__ == '__main__':
     etn.build(g=1, ncap=20000)
 
     dt = 0.001 / int(np.ceil(bath_freq)) / 10
-    num_steps = 100 * int(np.ceil(bath_freq)) * 2
+    num_steps = 100 * int(np.ceil(bath_freq)) *1
 
     p1 = []
     p2 = []

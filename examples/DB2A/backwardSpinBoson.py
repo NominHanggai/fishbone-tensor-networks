@@ -94,7 +94,12 @@ class SpinBoson:
         print("Geting d's")
         coef = np.array(self.coef)
         d_nt = [einsum('ik,k,k->i', Vn, coef[0, :, n], phase_factor) for n in range(len(freq)) ]
+        # d_nt = [einsum('ik,k,k->i', Vn, [1]*self.len_boson, phase_factor) for n in range(len(freq))]
+        # idx = np.argsort(np.abs(freq))
+        # print(idx)
+        # d_nt = np.array(d_nt)[idx]
         d_nt = d_nt[::-1]
+
         h2 = []
         he_dy = self.he_dy
         for i, dt in enumerate(d_nt):
@@ -158,11 +163,12 @@ if __name__ == '__main__':
     g = 500 #+ bath_freq * 500
 
     temp = 226.00253972894595 * 0.5 * tmp
-    j1 = lambda w: drude(w, lam=coup * 78.539815, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
-    #lambda w: lorentzian(1, w, coup * 78.539815, omega=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
-    j2 = lambda w: drude(w, lam=coup * 78.539815, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j1 = lambda w: drude(w, lam=coup * 78.539815 / 2, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j1 = lambda w: lorentzian(60, w, coup * 78.539815, omega=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j2 = lambda w: drude(w, lam=coup * 78.539815 / 2, gam=bath_freq * 4 * 19.634953749999998) * temp_factor(temp,w)
+    j2 = lambda w: lorentzian(60, w, coup * 78.539815, omega=bath_freq * 4 * 19.634953749999998) * temp_factor(temp, w)
 
-    eth = SpinBoson(pd, h1e=100*sigma_z, he_dy=[1*sigma_z, 1*sigma_x], sd=[j1, j2], domain=[-g, g])
+    eth = SpinBoson(pd, h1e=100*sigma_x, he_dy=[0.1*sigma_z, 1*sigma_x], sd=[j1, j2], domain=[-g, g])
     # print(eth.Vn)
     # exit()
     etn = SpinBoson1D(pd)
@@ -170,7 +176,7 @@ if __name__ == '__main__':
     etn.B[-1][0, 0, 0] = 1
 
     dt = 0.001 / 1 / 2
-    num_steps = 100 * 1 * 3
+    num_steps = 100 * 1 * 2
 
     p = []
 
