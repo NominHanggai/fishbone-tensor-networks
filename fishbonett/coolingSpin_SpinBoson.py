@@ -123,6 +123,10 @@ class SpinBoson:
             raise ValueError
         self.split_truncate_theta(Utheta, i, chi_max, eps)
 
+    def canonicalize(self, i: int, chi_max: int, eps: float):
+        theta = self.get_theta2(i)
+        self.split_truncate_theta(theta, i, chi_max, eps)
+
     def get_coupling(self, n, j, domain, g, ncap=20000):
         alphaL, betaL = rc.recurrenceCoefficients(
             n - 1, lb=domain[0], rb=domain[1], j=j, g=g, ncap=ncap
@@ -138,7 +142,7 @@ class SpinBoson:
         self.w_list, self.k_list = self.get_coupling(n, self.sd, self.domain, g, ncap)
 
     def diag(self):
-        w= self.w_list
+        w = self.w_list
         k = self.k_list
         coup = np.diag(w) + np.diag(k[1:], 1) + np.diag(k[1:], -1)
         freq, coef = np.linalg.eigh(coup)
@@ -207,18 +211,19 @@ class SpinBoson:
 
 if __name__ == '__main__':
     from fishbonett.stuff import drude, entang, sigma_z, sigma_x
+    from sys import argv
     bath_length = 200
-    phys_dim = 20
+    phys_dim = 50
     threshold = 1e-4
     coup = 4.0
-    bond_dim = 1000
+    bond_dim = 10000
     tmp = 2.0
     bath_freq = 1.0
 
     pd = [phys_dim] * bath_length + [2]
-    bo = 0
+    bo = 1.0 #float(argv[1])
     etn = SpinBoson(pd=pd, betaOmega=bo)
-    g = 500 + bath_freq * 5000
+    g = 500 + bath_freq * 500
     etn.domain = [-g, g]
     temp = 226.00253972894595 * 0.5 * tmp
 
@@ -230,7 +235,7 @@ if __name__ == '__main__':
     etn.build(g=1, ncap=20000)
 
     dt = 0.001 / int(np.ceil(bath_freq)) / 10
-    num_steps = 100 * int(np.ceil(bath_freq)) *1
+    num_steps = 100 * int(np.ceil(bath_freq)) * 3
 
     p1 = []
     p2 = []
@@ -240,6 +245,7 @@ if __name__ == '__main__':
     from time import time
 
     U1, U2 = etn.get_u(dt)
+    _U1, _U2 = etn.get_u(0)
 
     for tn in range(num_steps):
         t0 = time()
@@ -255,6 +261,9 @@ if __name__ == '__main__':
         for j in range(1, bath_length):
             print("j==", j, tn)
             etn.update_bond(j, bond_dim, threshold, swap=1)
+
+        for j in range(0, bath_length):
+            etn.canonicalize(j, bond_dim, threshold)
 
         theta = etn.get_theta1(bath_length)  # c.shape vL i vR
         rho1 = etn.get_rdm()
@@ -274,8 +283,7 @@ if __name__ == '__main__':
     pop2 = [x.real for x in p2]
     print("getRDM", pop1)
     print("noGetRDM", pop2)
-    # p.astype('float32').tofile(f'./output/pop_cooling_BO{bo}.dat')
+    # np.array(p1).astype('float32').tofile(f'./output/pop_cooling_BO{bo}.dat')
+    # np.array(p2).astype('float32').tofile(f'./output/popT_cooling_BO{bo}.dat')
     # s_dim.astype('float32').tofile(f'./output/sDim_cooling_BO{bo}.dat')
     # s_ent.astype('float32').tofile(f'./output/entropy_cooling_BO{bo}.dat')
-
-
