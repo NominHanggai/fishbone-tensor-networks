@@ -101,7 +101,7 @@ class SpinBoson1D:
 
     def __init__(self, pd):
         def g_state(dim):
-            tensor = np.zeros(dim)
+            tensor = np.zeros(dim, dtype=np.complex128)
             tensor[(0,) * len(dim)] = 1.
             return tensor
         self.pre_factor = 1.5
