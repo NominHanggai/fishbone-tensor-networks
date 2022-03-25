@@ -239,7 +239,7 @@ class SpinBoson:
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h/factor, 1)
+            u = calc_U(h/factor, 1).toarray()
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             u1 = u.reshape([r0, s0, r1, s1])
