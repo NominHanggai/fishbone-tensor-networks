@@ -78,7 +78,7 @@ def calc_U(H, dt):
     Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
     Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
     """
-    return scipy.linalg.expm(-dt * 1j * H)
+    return scipy.sparse.linalg.expm(-dt * 1j * H)
 
 
 def _to_list(x):
@@ -239,7 +239,7 @@ class SpinBoson:
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray()/factor, 1)
+            u = calc_U(h/factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             u1 = u.reshape([r0, s0, r1, s1])
