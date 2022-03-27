@@ -1,10 +1,10 @@
 import numpy as np
-
-from scipy.linalg import svd as csvd
-from fishbonett.fbpca import pca as rsvd
-from opt_einsum import contract as einsum
-from scipy.sparse import kron as skron
 import scipy
+from opt_einsum import contract as einsum
+from scipy.linalg import svd as csvd
+from scipy.sparse import kron as skron
+
+from fishbonett.fbpca import pca as rsvd
 
 
 def eye(d):
@@ -92,8 +92,9 @@ try:
 
 
     mempool = cp.get_default_memory_pool()
+    print("CuPy is successfully Imported.")
 except ImportError:
-    print("CuPy is not imported. Will use CPUs")
+    print("CuPy is not imported.")
     CUPY_SUCCESS = False
 
 
@@ -101,9 +102,10 @@ class SpinBoson1D:
 
     def __init__(self, pd):
         def g_state(dim):
-            tensor = np.zeros(dim)
+            tensor = np.zeros(dim, dtype=np.complex128)
             tensor[(0,) * len(dim)] = 1.
             return tensor
+
         self.pre_factor = 1.5
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
@@ -134,9 +136,9 @@ class SpinBoson1D:
             chivC = np.sum(w_B > eps_LBO)
             print('B chivC', chivC)
             piv = np.argsort(w_B)[::-1][:chivC]
-            self.R[i+1] = v_B.T.conj()[piv, :]
+            self.R[i + 1] = v_B.T.conj()[piv, :]
 
-            theta = einsum('aIJb,IK,JL->aKLb', theta, self.R[i].T.conj(), self.R[i+1].T.conj())
+            theta = einsum('aIJb,IK,JL->aKLb', theta, self.R[i].T.conj(), self.R[i + 1].T.conj())
 
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
@@ -170,9 +172,29 @@ class SpinBoson1D:
             self.B[i + 1] = B
         elif gpu is True and CUPY_SUCCESS is True:
             print("GPU running")
+
+            theta = cp.array(theta)
+            w_A, v_A = cp.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
+            print("w_A", w_A)
+            num_basis = min(10, cp.sum(w_A > eps_LBO))
+            piv = cp.argsort(w_A)[::-1][:num_basis]
+            R1 = v_A.T.conj()[piv, :]
+            self.R[i] = R1.get()
+            print('A num_basis', num_basis)
+
+            w_B, v_B = cp.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
+            print("w_B", w_B)
+            num_basis = min(10, cp.sum(w_B > eps_LBO))
+            print('B num_basis', num_basis)
+            piv = cp.argsort(w_B)[::-1][:num_basis]
+            R2 = v_B.T.conj()[piv, :]
+            self.R[i + 1] = R2.get()
+
+            theta = einsum('aIJb,IK,JL->aKLb', theta, R1.T.conj(), R2.T.conj())
+
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
-            theta = cp.array(theta)
+
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
             mempool.free_all_blocks()
@@ -208,17 +230,13 @@ class SpinBoson1D:
             self.B[i + 1] = B.get()
             del B
             mempool.free_all_blocks()
+        elif gpu is True and CUPY_SUCCESS is False:
+            raise ImportError('Intended to use GPU but cupy was not imported successfully')
 
-    def update_bond(self, i: int, chi_max: int, eps: float, eps_LBO: float, swap, toarray=True, gpu=False):
+    def update_bond(self, i: int, chi_max: int, eps: float, eps_LBO: float, swap, gpu=False):
         if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
-            if toarray is True:
-                d1, d2, u_bond = self.U[i]
-                u_bond = u_bond.toarray()
-                u_bond = u_bond.reshape([d1, d2, d1, d2])
-                # i j [i*] [j*], vL [i] [j] vR
-            else:
-                u_bond = self.U[i]
+            u_bond = self.U[i]
             print(theta.shape, u_bond.shape)
             if swap == 1:
                 print("swap: on")
@@ -244,4 +262,4 @@ class SpinBoson1D:
             else:
                 print(swap)
                 raise ValueError
-            self.split_truncate_theta(utheta, i, chi_max, eps, gpu=True)
+            self.split_truncate_theta(utheta, i, chi_max, eps, eps_LBO, gpu=True)
