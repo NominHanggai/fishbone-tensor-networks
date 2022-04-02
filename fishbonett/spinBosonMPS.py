@@ -1,10 +1,10 @@
 import numpy as np
-import scipy
-from opt_einsum import contract as einsum
-from scipy.linalg import svd as csvd
-from scipy.sparse import kron as skron
 
+from scipy.linalg import svd as csvd
 from fishbonett.fbpca import pca as rsvd
+from opt_einsum import contract as einsum
+from scipy.sparse import kron as skron
+import scipy
 
 
 def eye(d):
@@ -52,33 +52,10 @@ def calc_U(H, dt):
     """
     return scipy.linalg.expm(-dt * 1j * H)
 
-
-def _to_list(x):
-    """
-    Converts x to [x] if x is a np.ndarray. If x is None,
-    convert x(=None) to []. If x is already a list of a
-    np.ndarray return x itself. Else if x is not a list of
-    just one np.ndarray, raise TypeError.
-    :param x: an np.array or a list of one np.ndarray
-    :type x:
-    :return:
-    :rtype:
-    """
-    if x is None:
-        return []
-    elif x is list:
-        return x
-    else:
-        return [x]
-
-
 try:
     import cupy as cp
-
     CUPY_SUCCESS = True
     from fishbonett.rsvd_cupy import rsvd as cursvd
-
-
     def cusvd(A, b, full_matrices=False):
         dim = min(A.shape[0], A.shape[1])
         b = min(b, dim)
@@ -89,13 +66,12 @@ try:
         # print("Difference", diffsnorm(A, *B))
         # print(cs[1] - rs[1])
         return rs
-
-
     mempool = cp.get_default_memory_pool()
     print("CuPy is successfully Imported.")
 except ImportError:
     print("CuPy is not imported.")
     CUPY_SUCCESS = False
+
 
 
 class SpinBoson1D:
@@ -105,41 +81,22 @@ class SpinBoson1D:
             tensor = np.zeros(dim, dtype=np.complex128)
             tensor[(0,) * len(dim)] = 1.
             return tensor
-
         self.pre_factor = 1.5
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1, d, 1]) for d in pd]
         self.S = [np.ones([1], np.float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
-        self.R = [np.eye(d) for d in pd]
 
     def get_theta1(self, i: int):
-        theta1_proj = np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
-        return einsum('KI,aIb->aKb', self.R[i], theta1_proj)
+        return np.tensordot(np.diag(self.S[i]), self.B[i], [1, 0])
 
     def get_theta2(self, i: int):
-        j = i + 1
-        # shape: i, M, N, j
-        return einsum('aIb,LJ,bJc->aILc', self.get_theta1(i), self.R[j], self.B[j])
+        j = (i + 1)
+        return np.tensordot(self.get_theta1(i), self.B[j], [2, 0])
 
-    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, eps_LBO: float, gpu=False):
+    def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, gpu=False):
         if gpu is False or CUPY_SUCCESS is False:
-            w_A, v_A = np.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
-            print("w_A", w_A)
-            num_basis = np.sum(w_A > eps_LBO)
-            piv = np.argsort(w_A)[::-1][:num_basis]
-            self.R[i] = v_A[:, piv]
-            print('A num_basis', num_basis)
-            w_B, v_B = np.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
-            print("w_B", w_B)
-            num_basis = max(10,np.sum(w_B > eps_LBO))
-            print('B num_basis', num_basis)
-            piv = np.argsort(w_B)[::-1][:num_basis]
-            self.R[i + 1] = v_B[:, piv]
-
-            theta = einsum('KI,LJ,aIJb->aKLb', self.R[i].T.conj(), self.R[i + 1].T.conj(), theta)
-
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
             theta = np.reshape(theta, [chi_left_on_left * phys_left,
@@ -172,30 +129,9 @@ class SpinBoson1D:
             self.B[i + 1] = B
         elif gpu is True and CUPY_SUCCESS is True:
             print("GPU running")
-
-            theta = cp.array(theta)
-            w_A, v_A = cp.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
-            print("w_A", w_A)
-            num_basis = cp.sum(w_A > eps_LBO)
-            piv = cp.argsort(w_A)[::-1][:num_basis]
-            R1 = v_A[:, piv]
-            self.R[i] = R1.get()
-            print('A num_basis', num_basis)
-
-            w_B, v_B = cp.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
-            print("w_B", w_B)
-            num_basis = cp.sum(w_B > eps_LBO)
-            print('B num_basis', num_basis)
-            piv = cp.argsort(w_B)[::-1][:num_basis]
-            R2 = v_B[:, piv]
-            self.R[i + 1] = R2.get()
-
-            theta = einsum('KI,LJ,aIJb->aKLb', R1.T.conj(), R2.T.conj(), theta)
-            del R1, R2
-
             (chi_left_on_left, phys_left,
              phys_right, chi_right_on_right) = theta.shape
-
+            theta = cp.array(theta)
             theta = cp.reshape(theta, [chi_left_on_left * phys_left,
                                        phys_right * chi_right_on_right])
             mempool.free_all_blocks()
@@ -231,13 +167,12 @@ class SpinBoson1D:
             self.B[i + 1] = B.get()
             del B
             mempool.free_all_blocks()
-        elif gpu is True and CUPY_SUCCESS is False:
-            raise ImportError('Intended to use GPU but cupy was not imported successfully')
 
-    def update_bond(self, i: int, chi_max: int, eps: float, eps_LBO: float, swap, gpu=False):
+    def update_bond(self, i: int, chi_max: int, eps: float, swap, gpu=False):
         if not gpu or CUPY_SUCCESS is False:
             theta = self.get_theta2(i)
             u_bond = self.U[i]
+            # i j [i*] [j*], vL [i] [j] vR
             print(theta.shape, u_bond.shape)
             if swap == 1:
                 print("swap: on")
@@ -248,7 +183,7 @@ class SpinBoson1D:
             else:
                 print(swap)
                 raise ValueError
-            self.split_truncate_theta(utheta, i, chi_max, eps, eps_LBO)
+            self.split_truncate_theta(utheta, i, chi_max, eps)
         else:
             theta = cp.array(self.get_theta2(i))
             u_bond = cp.array(self.U[i])
@@ -263,4 +198,4 @@ class SpinBoson1D:
             else:
                 print(swap)
                 raise ValueError
-            self.split_truncate_theta(utheta, i, chi_max, eps, eps_LBO, gpu=True)
+            self.split_truncate_theta(utheta, i, chi_max, eps, gpu=True)
