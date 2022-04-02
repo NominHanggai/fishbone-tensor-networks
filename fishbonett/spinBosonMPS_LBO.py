@@ -136,13 +136,13 @@ class SpinBoson1D:
 
     def split_truncate_theta(self, theta, i: int, chi_max: int, eps: float, eps_LBO: float, gpu=False):
         if gpu is False or CUPY_SUCCESS is False:
-            w_A, v_A = np.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
+            w_A, v_A = scipy.linalg.eigh(einsum('aIJb,aKJb->IK', theta, theta.conj()))
             print("w_A", w_A)
             chivC = max(10, np.sum(w_A > eps_LBO))
             piv = np.argsort(w_A)[::-1][:chivC]
             self.R[i] = v_A[:, piv]
             print('A chivC', chivC)
-            w_B, v_B = np.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
+            w_B, v_B = scipy.linalg.eigh(einsum('aIJb, aIKb->JK', theta, theta.conj()))
             print("w_B", w_B)
             chivC = max(10, np.sum(w_B > eps_LBO))
             print('B chivC', chivC)
