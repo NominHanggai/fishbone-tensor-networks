@@ -195,10 +195,10 @@ class SpinBoson:
         e = self.phase
         mat_list = self.coup_mat_np
         phase_factor = np.array([e(w, t, delta) for w in freq])
-        print("Geting d's")
+        print("Getting d's")
         d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
         h2 = []
-        for i, k in enumerate(d_nt_mat):
+        for i, k in enumerate(d_nt_mat[:self.len_boson]):
             d1 = self.pd_boson[::-1][i]
             d2 = self.pd_spin
             c1 = _c(d1)
