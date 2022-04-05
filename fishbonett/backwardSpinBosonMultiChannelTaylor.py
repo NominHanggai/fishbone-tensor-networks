@@ -214,18 +214,13 @@ class SpinBoson:
             pass
         return h2[::-1]
 
-    def build(self, n
-              #g
-              # , ncap=20000
-              ):
+    def build(self, n):
         def tri_diag(self, n):
             v0 = [mat[n, n] for mat in self.coup_mat_np]
             print(v0)
             h = np.diag(self.freq)
             tri_mat, coef = lanczos(h, v0)
             return tri_mat, coef
-        # self.build_coupling(g, ncap)
-        print("Coupling Over")
         chain_freq, Q = tri_diag(self, n)
         res = np.diagonal(Q.T@Q-np.eye(Q.shape[0]))
         print('Lanczos Residual:', res@res)
@@ -235,16 +230,16 @@ class SpinBoson:
 
     def get_u(self, t, dt, mode='normal', factor=1, inc_sys=True):
         self.H = self.get_h2(t, dt, inc_sys)
-        U1 = dcopy(self.H)
-        U2 = dcopy(U1)
+        H1 = dcopy(self.H)
+        H2 = dcopy(H1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray()/factor, 1)
+            h = h.toarray()/factor
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
-            u1 = u.reshape([r0, s0, r1, s1])
-            u2 = np.transpose(u1, [1,0,3,2])
-            U1[i] = u1
-            U2[i] = u2
+            h1 = h.reshape([r0, s0, r1, s1])
+            h2 = np.transpose(h1, [1,0,3,2])
+            H1[i] = h1
+            H2[i] = h2
             print("Exponential", i, r0 * s0, r1 * s1)
-        return U1, U2
+        return H1, H2
