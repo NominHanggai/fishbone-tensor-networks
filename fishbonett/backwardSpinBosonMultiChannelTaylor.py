@@ -235,6 +235,7 @@ class SpinBoson:
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
             h = h.toarray()/factor
+            h = np.eye(d1*d2) + h + h@h/2
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             h1 = h.reshape([r0, s0, r1, s1])
