@@ -8,7 +8,7 @@ from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
 import scipy
 from fishbonett.stuff import drude, temp_factor, _c
-from fishbonett.legendre_discretization import get_Vn_squared
+from fishbonett.legendre_discretization import get_vn_squared
 from fishbonett.lanczos import lanczos
 
 
@@ -71,7 +71,7 @@ class SpinBoson:
         Vn = []
         coef = []
         for i, j in enumerate(sd):
-            w_list, V_list = get_Vn_squared(J=j, n=self.len_boson, domain=self.domain, ncap=20000)
+            w_list, V_list = get_vn_squared(J=j, n=self.len_boson, domain=self.domain, ncap=20000)
             V_list = np.sqrt(V_list/np.pi)
             _, P = lanczos(np.diag(w_list), V_list)
             sign = np.sign(P[0, :])
