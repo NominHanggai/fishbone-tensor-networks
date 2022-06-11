@@ -71,7 +71,7 @@ class SpinBoson:
 
     def build(self):
         def tri_diag(self):
-            v0 = [c for c in self.coup]
+            v0 = [c for c in self.aa_coupling]
             print("Initial Vector", v0)
             h = np.diag(self.freq)
             tri_mat, coef = lanczos(h, v0)
