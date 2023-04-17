@@ -1,7 +1,7 @@
 from copy import deepcopy as dcopy
 
 import numpy as np
-from common import calc_U, svd
+from fishbonett.common import calc_U, svd
 from numpy import exp
 from opt_einsum import contract as einsum
 
