@@ -1,18 +1,16 @@
-import numpy as np
-
-from scipy.linalg import svd as csvd
-from scipy.linalg import expm
-from fishbonett.fbpca import pca as rsvd
-from opt_einsum import contract as einsum
-from scipy.sparse.linalg import expm as sparseExpm
-from scipy.sparse import csc_matrix
-from numpy import exp
-import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
+
+import numpy as np
+from common import calc_U, svd
+from numpy import exp
+from opt_einsum import contract as einsum
+
 from scipy.sparse import kron as skron
-import scipy
+
+
 from fishbonett.lanczos import lanczos
-from fishbonett.stuff import temp_factor, sigma_z
+from fishbonett.stuff import temp_factor
+
 
 def _c(dim: int):
     """
@@ -57,47 +55,7 @@ def kron(a, b):
         return skron(a, b, format='csc')
 
 
-def svd(A, b, full_matrices=False):
-    dim = min(A.shape[0], A.shape[1])
-    b = min(b, dim)
-    if b >= 0:
-        # print("CSVD", A.shape, b)
-        # cs = csvd(A, full_matrices=False)
-        print("RRSVD", A.shape, b)
-        rs = rsvd(A, b, True, n_iter=2, l=2 * b)
-        # print("Difference", diffsnorm(A, *B))
-        # print(cs[1] - rs[1])
-        return rs
-    else:
-        return csvd(A, full_matrices=False)
 
-
-def calc_U(H, dt):
-    """Given the H_bonds, calculate ``U_bonds[i] = expm(-dt*H_bonds[i])``.
-
-    Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
-    Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
-    """
-    return scipy.linalg.expm(-dt * 1j * H)
-
-
-def _to_list(x):
-    """
-    Converts x to [x] if x is a np.ndarray. If x is None,
-    convert x(=None) to []. If x is already a list of a
-    np.ndarray return x itself. Else if x is not a list of
-    just one np.ndarray, raise TypeError.
-    :param x: an np.array or a list of one np.ndarray
-    :type x:
-    :return:
-    :rtype:
-    """
-    if x is None:
-        return []
-    elif x is list:
-        return x
-    else:
-        return [x]
 
 
 class SpinBoson1D:
@@ -150,11 +108,11 @@ class SpinBoson1D:
         U_bond = self.U[i]
         # i j [i*] [j*], vL [i] [j] vR
         print(theta.shape, U_bond.shape)
-        if swap==1:
+        if swap == 1:
             print("swap: on")
             Utheta = einsum('ijkl,PklQ->PjiQ', U_bond, theta)
 
-        elif swap==0:
+        elif swap == 0:
             print("swap: off")
             Utheta = einsum('ijkl,PklQ->PijQ', U_bond, theta)
         else:
@@ -169,14 +127,14 @@ class SpinBoson:
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
-        self.sd = [lambda x: np.heaviside(x, 1) / 1. * exp(-x /100)] * self.pd_spin
+        self.sd = [lambda x: np.heaviside(x, 1) / 1. * exp(-x / 100)] * self.pd_spin
         self.domain = [0, 1]
         self.he_dy = np.eye(self.pd_spin)
         self.h1e = np.eye(self.pd_spin)
         self.temp = temp
         freq = np.array(freq)
         self.freq = np.concatenate((-freq, freq))
-        print("coup_mat Zero Temp", [x[0,0] for x in coup_mat])
+        print("coup_mat Zero Temp", [x[0, 0] for x in coup_mat])
         coup_mat = np.concatenate((coup_mat, coup_mat))
         self.coup_mat = [mat * np.sqrt(np.abs(temp_factor(temp, self.freq[n]))) for n, mat in enumerate(coup_mat)]
         print("coup_mat", [mat[0, 0] for mat in self.coup_mat])
@@ -184,8 +142,8 @@ class SpinBoson:
         self.coup_mat_np = np.array(self.coup_mat)
         #  ↑ A list of coupling matrices A_k. H_i = \sum_k A_k \otimes (a+a^\dagger)
         self.H = []
-        self.coef= []
-        self.phase = lambda lam, t, delta: (np.exp(-1j*lam*(t+delta)) - np.exp(-1j*lam*t))/(-1j*lam)
+        self.coef = []
+        self.phase = lambda lam, t, delta: (np.exp(-1j * lam * (t + delta)) - np.exp(-1j * lam * t)) / (-1j * lam)
         self.phase_func = lambda lam, t: np.exp(-1j * lam * (t))
 
     def get_h2(self, t, delta, inc_sys=True):
@@ -196,7 +154,7 @@ class SpinBoson:
         mat_list = self.coup_mat_np
         phase_factor = np.array([e(w, t, delta) for w in freq])
         print("Getting d's")
-        d_nt_mat = [einsum('kst,k,k', mat_list, coef[:,n], phase_factor) for n in range(len(freq))]
+        d_nt_mat = [einsum('kst,k,k', mat_list, coef[:, n], phase_factor) for n in range(len(freq))]
         h2 = []
         for i, k in enumerate(d_nt_mat[:self.len_boson]):
             d1 = self.pd_boson[::-1][i]
@@ -207,28 +165,26 @@ class SpinBoson:
             h2.append((coup, d1, d2))
         d1 = self.pd_boson[-1]
         d2 = self.pd_spin
-        site = delta*kron(np.eye(d1), self.h1e)
+        site = delta * kron(np.eye(d1), self.h1e)
         if inc_sys is True:
             h2[0] = (h2[0][0] + site, d1, d2)
         else:
             pass
         return h2[::-1]
 
-    def build(self, n
-              #g
-              # , ncap=20000
-              ):
+    def build(self, n):
         def tri_diag(self, n):
             v0 = [mat[n, n] for mat in self.coup_mat_np]
             print(v0)
             h = np.diag(self.freq)
             tri_mat, coef = lanczos(h, v0)
             return tri_mat, coef
+
         # self.build_coupling(g, ncap)
         print("Coupling Over")
         chain_freq, Q = tri_diag(self, n)
-        res = np.diagonal(Q.T@Q-np.eye(Q.shape[0]))
-        print('Lanczos Residual:', res@res)
+        res = np.diagonal(Q.T @ Q - np.eye(Q.shape[0]))
+        print('Lanczos Residual:', res @ res)
         # print(repr(Q[:,0])) ## Should be parallel to one of the coup_mat vectors
         self.coef = Q
         self.chain_freq = np.diagonal(chain_freq)
@@ -239,11 +195,11 @@ class SpinBoson:
         U2 = dcopy(U1)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2
-            u = calc_U(h.toarray()/factor, 1)
+            u = calc_U(h.toarray() / factor, 1)
             r0 = r1 = d1  # physical dimension for site A
             s0 = s1 = d2  # physical dimension for site B
             u1 = u.reshape([r0, s0, r1, s1])
-            u2 = np.transpose(u1, [1,0,3,2])
+            u2 = np.transpose(u1, [1, 0, 3, 2])
             U1[i] = u1
             U2[i] = u2
             print("Exponential", i, r0 * s0, r1 * s1)
