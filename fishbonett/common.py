@@ -1,7 +1,12 @@
 from fishbonett.fbpca import pca as rsvd
 from scipy.linalg import svd as csvd
 from scipy.linalg import expm
-
+from scipy.sparse import csc_matrix
+from scipy.sparse.linalg import expm as sparseExpm
+from scipy.sparse import kron as skron
+import numpy as np
+from fishbonett.legendre_discretization import get_vn_squared
+from fishbonett.lanczos import lanczos
 
 def calc_U(H, dt):
     """Given the H_bonds, calculate ``U_bonds[i] = expm(-dt*H_bonds[i])``.
@@ -11,6 +16,14 @@ def calc_U(H, dt):
     """
     return expm(-dt * 1j * H)
 
+def calc_u_sp(H, dt):
+    """Given the H_bonds, calculate ``U_bonds[i] = expm(-dt*H_bonds[i])``.
+
+    Each local operator has legs (i out, (i+1) out, i in, (i+1) in), in short ``i j i* j*``.
+    Note that no imaginary 'i' is included, thus real `dt` means 'imaginary time' evolution!
+    """
+    H_sparse = csc_matrix(H)
+    return sparseExpm(-dt * 1j * H_sparse)
 
 def svd(A, b, full_matrices=False):
     """
@@ -31,3 +44,29 @@ def svd(A, b, full_matrices=False):
         return rs
     else:
         return csvd(A, full_matrices=False)
+
+def kron(a, b):
+    if a is None or b is None:
+        raise Exception("Can't kron none")
+    if type(a) is list and type(b) is list:
+        return skron(*a, *b, format='csc')
+    if type(a) is list and type(b) is not list:
+        return skron(*a, b, format='csc')
+    if type(a) is not list and type(b) is list:
+        return skron(a, *b, format='csc')
+    else:
+        return skron(a, b, format='csc')
+
+def c_(dim: int):
+    op = np.zeros((dim, dim))
+    for i in range(dim - 1):
+        op[i, i + 1] = np.sqrt(i + 1)
+    return op
+
+def get_bath_nn_paras(sd, n, domain):
+    w_list, v_list = get_vn_squared(J=sd, n=n, domain=domain, ncap=20000)
+    v_list = np.sqrt(v_list / np.pi)
+    tri_mat, P = lanczos(np.diag(w_list), v_list)
+    k0 = np.linalg.norm(v_list)
+    k_list = np.array([k0] + list(np.diagonal(tri_mat, -1)))
+    return w_list, k_list

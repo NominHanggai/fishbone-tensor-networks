@@ -123,7 +123,11 @@ class SpinBoson1D:
 
 class SpinBoson:
 
-    def __init__(self, pd, coup_mat, freq, temp):
+    def __init__(self, pd, coup_mat, freq, temp, H_add=None):
+        if H_add is None:
+            self.H_add = []
+        else:
+            self.H_add = H_add
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.len_boson = len(self.pd_boson)
@@ -170,6 +174,12 @@ class SpinBoson:
             h2[0] = (h2[0][0] + site, d1, d2)
         else:
             pass
+        for hi in self.H_add:
+            hs, hb, w = hi
+            ds, db = hs.shape[0], hb.shape[0]
+            c = _c(db)
+            coup = kron(hb, hs) + w * kron(c.T@c, np.eye(ds))
+            h2.append((coup, db, ds))
         return h2[::-1]
 
     def build(self, n):
