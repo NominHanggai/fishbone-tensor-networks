@@ -64,9 +64,9 @@ def c_(dim: int):
     return op
 
 def get_bath_nn_paras(sd, n, domain):
-    w_list, v_list = get_vn_squared(J=sd, n=n, domain=domain, ncap=20000)
+    w_list, v_list = get_vn_squared(sd, n=n, domain=domain)
     v_list = np.sqrt(v_list / np.pi)
-    tri_mat, P = lanczos(np.diag(w_list), v_list)
     k0 = np.linalg.norm(v_list)
+    tri_mat, P = lanczos(np.diag(w_list), v_list)
     k_list = np.array([k0] + list(np.diagonal(tri_mat, -1)))
     return w_list, k_list
