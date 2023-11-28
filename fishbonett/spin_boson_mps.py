@@ -52,10 +52,14 @@ def calc_U(H, dt):
     """
     return scipy.linalg.expm(-dt * 1j * H)
 
+
 try:
     import cupy as cp
+
     CUPY_SUCCESS = True
     from fishbonett.rsvd_cupy import rsvd as cursvd
+
+
     def cusvd(A, b, full_matrices=False):
         dim = min(A.shape[0], A.shape[1])
         b = min(b, dim)
@@ -66,12 +70,13 @@ try:
         # print("Difference", diffsnorm(A, *B))
         # print(cs[1] - rs[1])
         return rs
+
+
     mempool = cp.get_default_memory_pool()
     print("CuPy is successfully Imported.")
 except ImportError:
     print("CuPy is not imported.")
     CUPY_SUCCESS = False
-
 
 
 class SpinBosonMPS:
@@ -81,6 +86,7 @@ class SpinBosonMPS:
             tensor = np.zeros(dim, dtype=np.complex128)
             tensor[(0,) * len(dim)] = 1.
             return tensor
+
         self.svd_expansion_factor = 1.5
         self.pd_spin = pd_spin
         self.pd_boson = pd_boson
@@ -200,3 +206,10 @@ class SpinBosonMPS:
                 print(swap)
                 raise ValueError
             self.split_truncate_theta(utheta, i, chi_max, eps, gpu=True)
+
+
+import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)

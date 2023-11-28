@@ -507,6 +507,7 @@ class SpinBoson:
 
 
     def get_u(self, dt):
+        self.H = self.get_h2()
         U = [0]*len(self.H)
         for i, h_d1_d2 in enumerate(self.H):
             h, d1, d2 = h_d1_d2

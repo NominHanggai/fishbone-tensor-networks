@@ -85,7 +85,7 @@ class SpinBoson1D:
         self.pd_spin = pd[-1]
         self.pd_boson = pd[0:-1]
         self.B = [g_state([1, d, 1]) for d in pd]
-        self.S = [np.ones([1], np.float) for d in pd]
+        self.S = [np.ones([1], float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
 
     def get_theta1(self, i: int):

@@ -7,6 +7,7 @@ from scipy.sparse import kron as skron
 import numpy as np
 from fishbonett.legendre_discretization import get_vn_squared
 from fishbonett.lanczos import lanczos
+import fishbonett.recurrence_coefficients as rc
 
 def calc_U(H, dt):
     """Given the H_bonds, calculate ``U_bonds[i] = expm(-dt*H_bonds[i])``.
@@ -69,4 +70,13 @@ def get_bath_nn_paras(sd, n, domain):
     k0 = np.linalg.norm(v_list)
     tri_mat, P = lanczos(np.diag(w_list), v_list)
     k_list = np.array([k0] + list(np.diagonal(tri_mat, -1)))
+    return w_list, k_list
+
+def get_coupling(sd, n, domain, g=1, ncap=20000):
+    alphaL, betaL = rc.recurrenceCoefficients(
+        n - 1, lb=domain[0], rb=domain[1], j=sd, g=g, ncap=ncap
+    )
+    w_list = g * np.array(alphaL)
+    k_list = g * np.sqrt(np.array(betaL))
+    k_list[0] = k_list[0] / g
     return w_list, k_list

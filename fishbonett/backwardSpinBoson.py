@@ -11,9 +11,7 @@ import fishbonett.recurrence_coefficients as rc
 from copy import deepcopy as dcopy
 from scipy.sparse import kron as skron
 import scipy.integrate as integrate
-import sympy
 import scipy
-from sympy.utilities.lambdify import lambdify
 from fishbonett.stuff import drude, temp_factor, _c
 
 

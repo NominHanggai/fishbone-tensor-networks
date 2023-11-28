@@ -545,7 +545,7 @@ class SpinBoson1D:
         self.pd_boson = pd[0:-1]
         self.pd = pd
         self.B = [g_state([1, d, 1]) for d in pd]
-        self.S = [np.ones([1], np.float) for d in pd]
+        self.S = [np.ones([1], float) for d in pd]
         self.U = [np.zeros(0) for d in pd[1:]]
 
     def get_theta1(self, i: int):
@@ -631,6 +631,7 @@ class SpinBoson1D:
             theta = self.get_theta2(i)
             d1 = self.pd[i]
             d2 = self.pd[i+1]
+            print("U len", len(self.U), "i", i)
             U_bond = self.U[i].toarray()
             U_bond = U_bond.reshape([d1, d2, d1, d2])
             # i j [i*] [j*], vL [i] [j] vR
